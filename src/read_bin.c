@@ -21,3 +21,17 @@ float* read_f32_bin_model(const char* path, int nx, int nz)
     fclose(model_file);  
     return model;
 }
+
+// TODO: correct this function
+void write_f32_bin_model(const char* path, float* arr)
+{
+    FILE* fp = fopen(path, "wb");
+
+    if (fp == NULL) {
+        perror("Error oppening file");
+        return;
+    }
+
+    fwrite(&arr, sizeof(arr), 1, fp);
+    fclose(fp);
+}
