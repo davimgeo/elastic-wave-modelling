@@ -5,9 +5,15 @@
 
 typedef struct _modelPar {
     const char* path;
-    int nx;
-    int nz;
+    int   nx;
+    int   nz;
+    float dx;
+    float dz;
 } modelPar;
+
+typedef struct _geomPar {
+    int srcX;
+} geomPar;
 
 typedef struct _waveletPar {
     int nt;
