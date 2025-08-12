@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
-float* ricker(int nt, float dt, float fmax);
+#include "par.h"
+
+float* fd(modelPar* model, geomPar* geom, snapshots* snap, waveletPar* wav);
 
 #endif // FD_H

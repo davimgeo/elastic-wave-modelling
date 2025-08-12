@@ -2,6 +2,7 @@
 #define PAR_H
 
 #include <stdio.h>
+#include <stdbool.h>
 
 typedef struct _modelPar {
     const char* path;
@@ -9,16 +10,35 @@ typedef struct _modelPar {
     int   nz;
     float dx;
     float dz;
+
+    float* rho; 
+    float* vs; 
+    float* vp;
 } modelPar;
 
+typedef struct _snapshots {
+    bool snap_bool;
+    int  snap_ratio;
+} snapshots;
+
+typedef struct _fdFields {
+    float* txx; 
+    float* tzz; 
+    float* txz; 
+    float* vx; 
+    float* vz;
+} fdFields;
+
 typedef struct _geomPar {
-    int srcX;
+    int sIdx;
+    int sIdz;
 } geomPar;
 
 typedef struct _waveletPar {
-    int nt;
-    float dt;
-    float fmax;
+    int     nt;
+    float   dt;
+    float   fmax;
+    float*  wavelet;
 } waveletPar;
 
 #endif // PAR_H

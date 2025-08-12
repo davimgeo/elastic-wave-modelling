@@ -2,63 +2,39 @@
 #include <math.h>
 
 #include "fd.h"
+#include "par.h"
 
-#define PI 3.14159265358979f
-
-float* ricker(int nt, float dt, float fmax) 
+static void get_snapshots(snapshots* snap, float* pressure, int time_step)
 {
-    float* ricker = (float*)malloc(nt * sizeof(float));
-    if (ricker == NULL) {
-        return NULL;
+    if (snap->snap_bool && !(time_step % snap->snap_ratio)) {
+        // save pressure on data/snapshots
     }
-    
-    float t0 = 2.0f * PI / fmax;
-    for (int i = 0; i < nt; i++) {
-        float t = (i * dt) - t0;
-        float arg = (PI*PI * fmax*fmax * t*t);
-        ricker[i] = (1.0f - 2.0f*arg) * expf(-arg);
-    }
-    return ricker;
 }
 
-/* implicit declaration */
-static void fd2d_2E2T(int nx, int nz, float dx, float dz, float dt, int t, 
-                       float* txx, float* tzz, float* txz, float* vx, float* vz,
-                       float* rho, float* vs, float* vp, float* wavelet,
-                       int sIdx, int sIdz);
-
-float*
-fd(int nt, int nx, int nz, float dt, float dx, float dz, 
-   float* vp, float* vs, float* rho, float* wavelet, int sIdx, int sIdz) 
+static void  
+fd2d_2E2T(modelPar* model, geomPar* geom, waveletPar* wav, fdFields* fld, int time_step)
 {
-    size_t n = (size_t)nx * (size_t)nz;
+    int nx = model->nx;
+    int nz = model->nz;
+    float dx = model->dx;
+    float dz = model->dz;
+    float dt = wav->dt;
 
-    /* initialize stagerred grid arrays */
-    float* txx = (float*)malloc(n * sizeof(float));
-    float* tzz = (float*)malloc(n * sizeof(float));
-    float* txz = (float*)malloc(n * sizeof(float));
-    float* vx  = (float*)malloc(n * sizeof(float));
-    float* vz  = (float*)malloc(n * sizeof(float));
+    float *txx = fld->txx;
+    float *tzz = fld->tzz;
+    float *txz = fld->txz;
+    float *vx  = fld->vx;
+    float *vz  = fld->vz;
 
-    for (int t = 0; t < nt; t++) {
-        fd2d_2E2T(nx, nz, dx, dz, dt, t, txx, tzz, txz, vx, vz,
-                 rho, vs, vp, wavelet, sIdx, sIdz);
-    }
+    float *rho = model->rho;
+    float *vs  = model->vs;
+    float *vp  = model->vp;
 
-    free(tzz);
-    free(txz);
-    free(vx);
-    free(vz);
+    float *wavelet = wav->wavelet;
 
-    return txx;
-}
+    int sIdx = geom->sIdx;
+    int sIdz = geom->sIdz;
 
-static void 
-fd2d_2E2T(int nx, int nz, float dx, float dz, float dt, int t, 
-          float* txx, float* tzz, float* txz, float* vx,
-          float* vz, float* rho, float* vs, float* vp, float* wavelet,
-          int sIdz, int sIdx)
-{
     for (int i = 0; i < nz - 2; i++) {
         for (int j = 0; j < nx - 2; j++) {
 
@@ -69,8 +45,8 @@ fd2d_2E2T(int nx, int nz, float dx, float dz, float dt, int t,
             int idx_zp = (i+1) + j     * nz;  // z+1
 
             /* applying source */
-            txx[sIdz + sIdx * nz] += wavelet[t] / (dx * dx);
-            tzz[sIdz + sIdx * nz] += wavelet[t] / (dx * dx);
+            txx[sIdz + sIdx*nz] += wavelet[time_step] / (dx * dx);
+            tzz[sIdz + sIdx*nz] += wavelet[time_step] / (dx * dx);
 
             /* 2E2T velocity settings */
             float d_txx_dx = (txx[idx] - txx[idx_xm]) / dx;
@@ -89,13 +65,15 @@ fd2d_2E2T(int nx, int nz, float dx, float dz, float dt, int t,
             float d_vz_dz = (vz[idx_zp] - vz[idx]) / dz;
             float d_vz_dx = (vz[idx_xp] - vz[idx]) / dx;
             
-            /* elastic parameters settings */
+            // elastic parameters settings
             float lambda_xx = (vp[idx] * vp[idx] - 2.0f * vs[idx] * vs[idx]) * rho[idx];
             float lambda_zz = lambda_xx;
             float mi_xx     = (vs[idx] * vs[idx]) * rho[idx];
             float mi_zz     = mi_xx;
-            float mi_vx     = 0.5f * (vs[idx]*vs[idx] * rho[idx]) + (vs[idx_xp]*vs[idx_xp] * rho[idx_xp]);
-            float mi_vz     = 0.5f * (vs[idx]*vs[idx] * rho[idx]) + (vs[idx_zp]*vs[idx_zp] * rho[idx_zp]);
+            float mi_vx     = 0.5f * (vs[idx]*vs[idx] * rho[idx]) +
+                              (vs[idx_xp]*vs[idx_xp] * rho[idx_xp]);
+            float mi_vz     = 0.5f * (vs[idx]*vs[idx] * rho[idx]) +
+                              (vs[idx_zp]*vs[idx_zp] * rho[idx_zp]);
             float mi_xz     = powf(0.25f * (1/mi_xx + 1/mi_zz + 1/mi_vx + 1/mi_vz), -1.0f);
 
             txx[idx] = (lambda_xx + 2.0f * mi_xx * d_vx_dx) + (lambda_xx * d_vz_dz);
@@ -103,4 +81,35 @@ fd2d_2E2T(int nx, int nz, float dx, float dz, float dt, int t,
             txz[idx] = mi_xz * (d_vx_dz + d_vz_dx);
         }
     }
+}
+
+float* fd(modelPar* model, geomPar* geom, snapshots* snap, waveletPar* wav)
+{
+    size_t n = (size_t)model->nx * (size_t)model->nz;
+
+    fdFields fld;
+    /* initialize staggered grid arrays */
+    fld.txx = (float*)calloc(n, sizeof(float));
+    fld.tzz = (float*)calloc(n, sizeof(float));
+    fld.txz = (float*)calloc(n, sizeof(float));
+    fld.vx  = (float*)calloc(n, sizeof(float));
+    fld.vz  = (float*)calloc(n, sizeof(float));
+
+    if (fld.txx == NULL || fld.tzz == NULL || fld.txz == NULL ||
+        fld.vx  == NULL || fld.vz  == NULL) {
+        return NULL;
+    }
+
+    for (int t = 0; t < wav->nt; t++) {
+        fd2d_2E2T(model, geom, wav, &fld, t);
+
+        get_snapshots(snap, fld.txx, t);
+    }
+
+    free(fld.tzz);
+    free(fld.txz);
+    free(fld.vx);
+    free(fld.vz);
+
+    return fld.txx; /* Caller is responsible for freeing txx */
 }
