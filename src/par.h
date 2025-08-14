@@ -5,7 +5,9 @@
 #include <stdbool.h>
 
 typedef struct _modelPar {
-    const char* path;
+    const char* rho_path;
+    const char* vs_path;
+    const char* vp_path;
     int   nx;
     int   nz;
     float dx;
@@ -18,7 +20,7 @@ typedef struct _modelPar {
 
 typedef struct _snapshots {
     bool snap_bool;
-    int  snap_ratio;
+    int  snap_num;
 } snapshots;
 
 typedef struct _fdFields {

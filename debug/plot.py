@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-PATH = "data/ricker_nt1001_dt4e-3.txt"
+PATH = "data/output/wavelet.txt"
 
 ricker = np.loadtxt(PATH)
 

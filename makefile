@@ -1,14 +1,14 @@
 CFLAGS = -std=c99 -Wall -Werror
 
-SRCS = main.c src/read_bin.c debug/debug.c src/fd.c
+SRCS = run.c src/bin.c debug/debug.c src/fd.c src/wavelet.c
 
 all:
-	gcc $(CFLAGS) $(SRCS) -o main.out -lm
+	gcc $(CFLAGS) $(SRCS) -o run.out -lm
 
 run: all
-	./main.out
+	./run.out
 	
-	rm main.out
+	rm run.out
 
 clean:
-	rm main.out
+	rm run.out

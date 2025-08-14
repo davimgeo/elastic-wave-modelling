@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "read_bin.h"
+#include "bin.h"
 
 float* read_f32_bin_model(const char* path, int nx, int nz)
 {
@@ -20,4 +20,21 @@ float* read_f32_bin_model(const char* path, int nx, int nz)
 
     fclose(model_file);  
     return model;
+}
+
+void write_f32_bin_model(const char* path, float* model, int nx, int nz)
+{
+    FILE* model_file = fopen(path, "wb");
+    if (model_file == NULL) {
+        printf("Model file could not be created\n");
+        return;
+    }
+
+    for (int i = 0; i < nx; i++) {
+        for (int j = 0; j < nz; j++) {
+            fwrite(&model[i + j*nz], sizeof(float), 1, model_file);
+        }
+    }
+
+    fclose(model_file);
 }
