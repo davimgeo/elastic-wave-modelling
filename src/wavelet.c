@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define PI 3.14159265358979f
+#define PI 3.1415927f
 
 float* ricker(int nt, float dt, float fmax) 
 {
