@@ -42,8 +42,8 @@ fd_velocity_2E2T
             int idx    = IDX(i  , j  );
             int idx_xm = IDX(i  , j-1);
             int idx_xp = IDX(i  , j+1);
-            int idx_zm = IDX(i  , j-1);
-            int idx_zp = IDX(i-1, j  );
+            int idx_zm = IDX(i-1, j  );
+            int idx_zp = IDX(i+1, j  );
 
             float d_txx_dx = (fld->txx[idx] - fld->txx[idx_xm]) / dx;
             float d_tzz_dz = (fld->tzz[idx] - fld->tzz[idx_zm]) / dz;  

@@ -11,7 +11,8 @@ float* read_f32_bin_model(const char* path, int nx, int nz)
         return NULL;
     }
 
-    float *model = (float*)malloc((nx * nz) * sizeof(float));
+    size_t n = nx * nz;
+    float *model = (float*)calloc(n, sizeof(float));
     for (int i = 0; i < nx; i++) {
         for (int j = 0 ; j < nz; j++) {
             fread(&model[i + j*nz], sizeof(float), 1, model_file); 

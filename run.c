@@ -51,7 +51,7 @@ int main(void)
     }
 
     fld.txx = fd(&fld, &mpar, &geom, &snap, &wpar);
-    //print_f32_2d_arr(fld.txx, mpar.nx, mpar.nz);
+    print_f32_2d_arr(fld.txx, mpar.nx, mpar.nz);
 
     free(mpar.rho);
     free(mpar.vp);
