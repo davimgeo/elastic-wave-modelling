@@ -5,6 +5,6 @@
 
 #include "par.h"
 
-float* fd(fdFields* fld, modelPar* model, geomPar* geom, snapshots* snap, waveletPar* wav);
+float* fd(fdFields *fld, modelPar *model, geomPar *geom, snapshots *snap, waveletPar *wav);
 
 #endif // FD_H
