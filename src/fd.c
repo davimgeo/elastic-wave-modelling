@@ -10,11 +10,9 @@
 
 #define PRINT(x)           printf("%f\n", (x))
 
-// TODO: apply this on the code
 #define IDX(i,j)           ((i) + (j) * nz)
 
-// TODO: apply this on the code
-#define AVG(a, b) 0.5f * (a + b)
+#define AVG(a, b)          (0.5f * ((a) + (b)))
 
 static void 
 get_snapshots
@@ -41,19 +39,19 @@ fd_velocity_2E2T
 {
     for (int i = 1; i < nx - 2; i++) {
         for (int j = 1; j < nz - 2; j++) {
-            int idx    = i     + j     * nz;
-            int idx_xm = i     + (j-1) * nz;
-            int idx_xp = i     + (j+1) * nz;
-            int idx_zm = (i-1) + j     * nz;
-            int idx_zp = (i+1) + j     * nz;
+            int idx    = IDX(i  , j  );
+            int idx_xm = IDX(i  , j-1);
+            int idx_xp = IDX(i  , j+1);
+            int idx_zm = IDX(i  , j-1);
+            int idx_zp = IDX(i-1, j  );
 
             float d_txx_dx = (fld->txx[idx] - fld->txx[idx_xm]) / dx;
             float d_tzz_dz = (fld->tzz[idx] - fld->tzz[idx_zm]) / dz;  
             float d_txz_dz = (fld->txz[idx_zp] - fld->txz[idx]) / dz;
             float d_txz_dx = (fld->txz[idx_xp] - fld->txz[idx]) / dx;
 
-            float b_x = 0.5f * (model->rho[idx_xp] + model->rho[idx]);
-            float b_z = 0.5f * (model->rho[idx_zp] + model->rho[idx]);
+            float b_x = AVG(model->rho[idx_xp], model->rho[idx]);
+            float b_z = AVG(model->rho[idx_zp], model->rho[idx]);
             
             fld->vx[idx] += dt * b_x *
                             (d_txx_dx + d_txz_dz);
@@ -78,9 +76,9 @@ fd_pressure_2E2T
     {
         for (int j = 1; j < nz - 2; j++)
         {
-            int idx    = i + j * nz;
-            int idx_xp = i + (j+1) * nz;
-            int idx_zp = (i+1) + j * nz;
+            int idx    = IDX(i  , j  );
+            int idx_xp = IDX(i  , j+1);
+            int idx_zp = IDX(i+1, j  );
 
             float d_vx_dx = (fld->vx[idx_xp] - fld->vx[idx]) / dx;
             float d_vx_dz = (fld->vx[idx_zp] - fld->vx[idx]) / dz;
@@ -96,15 +94,15 @@ fd_pressure_2E2T
             float mi_xx = (model->vs[idx] * model->vs[idx]) * model->rho[idx];
             float mi_zz = mi_xx;
 
-            float mi_vx = 0.5f * (model->vs[idx] * model->vs[idx] *
-                                  model->rho[idx]) +
-                          (model->vs[idx_xp] * model->vs[idx_xp] *
-                           model->rho[idx_xp]);
+            float mi_vx = AVG(
+                model->vs[idx]   * model->vs[idx]   * model->rho[idx],
+                model->vs[idx_xp] * model->vs[idx_xp] * model->rho[idx_xp]
+            );
 
-            float mi_vz = 0.5f * (model->vs[idx] * model->vs[idx] *
-                                  model->rho[idx]) +
-                          (model->vs[idx_zp] * model->vs[idx_zp] *
-                           model->rho[idx_zp]);
+            float mi_vz = AVG(
+                model->vs[idx]   * model->vs[idx]   * model->rho[idx],
+                model->vs[idx_zp] * model->vs[idx_zp] * model->rho[idx_zp]
+            );
 
             float mi_xz = SAFE_INV(0.25f *
                                    (1/mi_xx + 1/mi_zz + 1/mi_vx + 1/mi_vz),
@@ -171,3 +169,4 @@ fd
 
     return fld->txx; 
 }
+
