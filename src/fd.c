@@ -1,18 +1,28 @@
 #include <stdlib.h>
-#include <math.h>
 
-#include "../debug/debug.h"
 #include "fd.h"
 #include "bin.h"
 #include "par.h"
 
-#define SAFE_INV(x, eps) 1.0f / (x + eps)
+#define SAFE_INV(x, eps)   (1.0f / ((x) + (eps)))
 
-#define OUTPUT_PATH "data/output/snapshots/"
+#define OUTPUT_PATH        "data/output/snapshots/"
 
-#define PRINT(x) printf("%f \n", x)
+#define PRINT(x)           printf("%f\n", (x))
 
-static void get_snapshots(int snap_ratio, float* pressure, int time_step, int nx, int nz) 
+// TODO: apply this on the code
+#define IDX(i,j)           ((i) + (j) * nz)
+
+// TODO: apply this on the code
+#define AVG(a, b) 0.5f * (a + b)
+
+static void 
+get_snapshots
+( int    snap_ratio, 
+  float* pressure, 
+  int    time_step, 
+  int    nx, 
+  int    nz ) 
 { 
     if (!(time_step % snap_ratio)) {
         write_f32_bin_model(OUTPUT_PATH, pressure, nx, nz);
@@ -20,7 +30,14 @@ static void get_snapshots(int snap_ratio, float* pressure, int time_step, int nx
 }
 
 static void 
-fd_velocity_2E2T(modelPar* model, fdFields* fld, int nx, int nz, float dx, float dz, float dt)
+fd_velocity_2E2T
+( modelPar* model, 
+  fdFields* fld, 
+  int       nx, 
+  int       nz, 
+  float     dx, 
+  float     dz, 
+  float     dt )
 {
     for (int i = 1; i < nx - 2; i++) {
         for (int j = 1; j < nz - 2; j++) {
@@ -38,46 +55,80 @@ fd_velocity_2E2T(modelPar* model, fdFields* fld, int nx, int nz, float dx, float
             float b_x = 0.5f * (model->rho[idx_xp] + model->rho[idx]);
             float b_z = 0.5f * (model->rho[idx_zp] + model->rho[idx]);
             
-            fld->vx[idx] += dt * b_x * (d_txx_dx + d_txz_dz);
-            fld->vz[idx] += dt * b_z * (d_txz_dx + d_tzz_dz);
+            fld->vx[idx] += dt * b_x *
+                            (d_txx_dx + d_txz_dz);
+
+            fld->vz[idx] += dt * b_z * 
+                            (d_txz_dx + d_tzz_dz);
         }
     }
 }
 
 static void 
-fd_pressure_2E2T(modelPar* model, fdFields* fld, int nx, int nz, float dx, float dz, float dt)
+fd_pressure_2E2T
+( modelPar* model, 
+  fdFields* fld, 
+  int       nx, 
+  int       nz, 
+  float     dx, 
+  float     dz, 
+  float     dt )
 {
-    for (int i = 1; i < nx - 2; i++) {
-        for (int j = 1; j < nz - 2; j++) {
-            int idx    = i     + j     * nz;
-            int idx_xp = i     + (j+1) * nz;
-            int idx_zp = (i+1) + j     * nz;
+    for (int i = 1; i < nx - 2; i++)
+    {
+        for (int j = 1; j < nz - 2; j++)
+        {
+            int idx    = i + j * nz;
+            int idx_xp = i + (j+1) * nz;
+            int idx_zp = (i+1) + j * nz;
 
             float d_vx_dx = (fld->vx[idx_xp] - fld->vx[idx]) / dx;
             float d_vx_dz = (fld->vx[idx_zp] - fld->vx[idx]) / dz;
             float d_vz_dz = (fld->vz[idx_zp] - fld->vz[idx]) / dz;
             float d_vz_dx = (fld->vz[idx_xp] - fld->vz[idx]) / dx;
-            
-            float lambda_xx = (model->vp[idx]*model->vp[idx] - 2.0f*model->vs[idx]*model->vs[idx]) * model->rho[idx];
+
+            float lambda_xx = (model->vp[idx] * model->vp[idx] -
+                               2.0f * model->vs[idx] * model->vs[idx]) *
+                               model->rho[idx];
+
             float lambda_zz = lambda_xx;
 
-            float mi_xx     = (model->vs[idx] * model->vs[idx]) * model->rho[idx];
-            float mi_zz     = mi_xx;
-            float mi_vx     = 0.5f * (model->vs[idx] * model->vs[idx] * model->rho[idx]) +
-                              (model->vs[idx_xp] * model->vs[idx_xp] * model->rho[idx_xp]);
-            float mi_vz     = 0.5f * (model->vs[idx] * model->vs[idx] * model->rho[idx]) +
-                              (model->vs[idx_zp] * model->vs[idx_zp] * model->rho[idx_zp]);
-            float mi_xz     = SAFE_INV(0.25f * (1/mi_xx + 1/mi_zz + 1/mi_vx + 1/mi_vz), 1e-8f);
+            float mi_xx = (model->vs[idx] * model->vs[idx]) * model->rho[idx];
+            float mi_zz = mi_xx;
 
-            fld->txx[idx] += dt * ((lambda_xx + 2.0f*mi_xx) * d_vx_dx) + (lambda_xx * d_vz_dz);
-            fld->tzz[idx] += dt * ((lambda_zz + 2.0f*mi_xx) * d_vz_dz) + (lambda_xx * d_vx_dx);
-            fld->txz[idx] += dt * mi_xz * (d_vx_dz + d_vz_dx);
+            float mi_vx = 0.5f * (model->vs[idx] * model->vs[idx] *
+                                  model->rho[idx]) +
+                          (model->vs[idx_xp] * model->vs[idx_xp] *
+                           model->rho[idx_xp]);
+
+            float mi_vz = 0.5f * (model->vs[idx] * model->vs[idx] *
+                                  model->rho[idx]) +
+                          (model->vs[idx_zp] * model->vs[idx_zp] *
+                           model->rho[idx_zp]);
+
+            float mi_xz = SAFE_INV(0.25f *
+                                   (1/mi_xx + 1/mi_zz + 1/mi_vx + 1/mi_vz),
+                                   1e-8f);
+
+            fld->txx[idx] += dt * ((lambda_xx + 2.0f * mi_xx) * d_vx_dx) +
+                             (lambda_xx * d_vz_dz);
+
+            fld->tzz[idx] += dt * ((lambda_zz + 2.0f * mi_xx) * d_vz_dz) +
+                             (lambda_xx * d_vx_dx);
+
+            fld->txz[idx] += dt * mi_xz *
+                             (d_vx_dz + d_vz_dx);
         }
     }
 }
 
 float* 
-fd(fdFields* fld, modelPar* model, geomPar* geom, snapshots* snap, waveletPar* wav)
+fd
+( fdFields*   fld, 
+  modelPar*   model, 
+  geomPar*    geom, 
+  snapshots*  snap, 
+  waveletPar* wav )
 {
     size_t n = model->nx * model->nz;
 
@@ -102,12 +153,10 @@ fd(fdFields* fld, modelPar* model, geomPar* geom, snapshots* snap, waveletPar* w
     for (int t = 0; t < wav->nt; t++) {
         int s_idx = geom->sIdz + geom->sIdx*nz;
 
-        fld->txx[s_idx] += wav->wavelet[t] / (dx*dx);
-        //PRINT(fld->txx[s_idx]);
-        fld->tzz[s_idx] += wav->wavelet[t] / (dx*dx);
+        fld->txx[s_idx] += wav->wavelet[t] / (dx*dz);
+        fld->tzz[s_idx] += wav->wavelet[t] / (dx*dz);
 
         fd_velocity_2E2T(model, fld, nx, nz, dx, dz, wav->dt);
-
         fd_pressure_2E2T(model, fld, nx, nz, dx, dz, wav->dt);
 
         if (snap->snap_bool) {
