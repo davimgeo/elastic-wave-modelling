@@ -1,6 +1,6 @@
-CFLAGS = -std=c99 -Wall -Werror
+CFLAGS = -std=c99 -O2 -Wall -Werror -fopenmp
 
-SRCS = run.c src/bin.c debug/debug.c src/fd.c src/wavelet.c
+SRCS = src/run.c src/bin.c debug/debug.c src/fd_test.c src/wavelet.c
 
 all:
 	gcc $(CFLAGS) $(SRCS) -o run.out -lm

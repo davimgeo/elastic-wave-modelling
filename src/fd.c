@@ -93,13 +93,13 @@ fd_pressure_2E2T
           float mi_zz = mi_xx;
 
           float mi_vx = AVG(
-            model->vs[idx] * model->vs[idx] * model->rho[idx],
-            model->vs[idx_xp] * model->vs[idx_xp] * model->rho[idx_xp]
+            model->vs[idx]*model->vs[idx] * model->rho[idx],
+            model->vs[idx_xp]*model->vs[idx_xp] * model->rho[idx_xp]
           );
 
           float mi_vz = AVG(
-            model->vs[idx] * model->vs[idx] * model->rho[idx],
-            model->vs[idx_zp] * model->vs[idx_zp] * model->rho[idx_zp]
+            model->vs[idx]*model->vs[idx] * model->rho[idx],
+            model->vs[idx_zp]*model->vs[idx_zp] * model->rho[idx_zp]
           );
 
           float mi_xz = SAFE_INV(0.25f *
@@ -119,7 +119,7 @@ fd_pressure_2E2T
     }
 }
 
-float* 
+void 
 fd
 ( fdFields   *fld, 
   modelPar   *model, 
@@ -136,9 +136,8 @@ fd
   fld->vx  = (float *)calloc (n, sizeof (float));
   fld->vz  = (float *)calloc (n, sizeof (float));
 
-  if (!fld->txx || !fld->tzz || !fld->txz || !fld->vx || !fld->vz) {
-      return NULL;
-    }
+  if (!fld->txx || !fld->tzz || !fld->txz || !fld->vx || !fld->vz) 
+      return;
 
   int   nx = model->nx;
   int   nz = model->nz;
@@ -160,12 +159,5 @@ fd
           get_snapshots (snap_ratio, fld->txx, t, nx, nz);
         }
     }
-
-  free(fld->tzz);
-  free(fld->txz);
-  free(fld->vx);
-  free(fld->vz);
-
-  return fld->txx; 
 }
 
