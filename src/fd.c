@@ -130,11 +130,11 @@ fd
   size_t n = model->nx * model->nz;
 
   /* initialize staggered grid arrays */
-  fld->txx = (float *) calloc (n, sizeof (float));
-  fld->tzz = (float *) calloc (n, sizeof (float));
-  fld->txz = (float *) calloc (n, sizeof (float));
-  fld->vx  = (float *) calloc (n, sizeof (float));
-  fld->vz  = (float *) calloc (n, sizeof (float));
+  fld->txx = (float *)calloc (n, sizeof (float));
+  fld->tzz = (float *)calloc (n, sizeof (float));
+  fld->txz = (float *)calloc (n, sizeof (float));
+  fld->vx  = (float *)calloc (n, sizeof (float));
+  fld->vz  = (float *)calloc (n, sizeof (float));
 
   if (!fld->txx || !fld->tzz || !fld->txz || !fld->vx || !fld->vz) {
       return NULL;

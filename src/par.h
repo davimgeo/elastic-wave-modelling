@@ -5,9 +5,9 @@
 #include <stdbool.h>
 
 typedef struct {
-  const char *rho_path;
-  const char *vs_path;
-  const char *vp_path;
+  char *rho_path;
+  char *vs_path;
+  char *vp_path;
   int         nx;
   int         nz;
   float       dx;
