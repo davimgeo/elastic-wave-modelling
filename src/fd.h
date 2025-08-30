@@ -5,6 +5,8 @@
 
 #include "par.h"
 
+float* ricker(int nt, float dt, float fmax);
+
 void 
 fd
 ( fdFields   *fld, 

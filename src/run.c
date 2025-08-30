@@ -6,7 +6,6 @@
 
 #include "par.h"
 #include "bin.h"
-#include "wavelet.h"
 #include "fd.h"
 
 #define OUTPUT_PATH "../data/output/"
