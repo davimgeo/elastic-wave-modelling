@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-typedef struct {
+typedef struct 
+{
   char *rho_path;
   char *vs_path;
   char *vp_path;
@@ -19,12 +20,14 @@ typedef struct {
   float *vp;
 } modelPar;
 
-typedef struct {
+typedef struct 
+{
   bool snap_bool;
   int  snap_num;
 } snapshots;
 
-typedef struct {
+typedef struct 
+{
   float *txx;
   float *tzz;
   float *txz;
@@ -32,12 +35,14 @@ typedef struct {
   float *vz;
 } fdFields;
 
-typedef struct {
+typedef struct 
+{
   int sIdx;
   int sIdz;
 } geomPar;
 
-typedef struct {
+typedef struct 
+{
   int    nt;
   float  dt;
   float  fmax;

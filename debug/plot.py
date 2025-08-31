@@ -1,6 +1,8 @@
 import os
+
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 PATH = "data/output/snapshots/"
 
@@ -11,13 +13,13 @@ salt = np.fromfile(
 ).reshape([nz, nx], order='F')
 
 snap = np.fromfile(
-        "data/output/snapshots/txx_1150x648_tid_1494.bin", dtype=np.float32, count=nx*nz
+        "data/output/snapshots/vp_1150x648_tid_2158.bin", dtype=np.float32, count=nx*nz
 ).reshape([nz, nx], order='F')
 
-scale = 0.8 * np.std(snap)
+scale = 0.6 * np.std(snap)
 
 plt.imshow(snap, cmap='Greys', vmin=-scale, vmax=scale)
-plt.imshow(salt, alpha=0.5)
+plt.imshow(salt, alpha=0.5, cmap='gray')
 
 plt.show()
 

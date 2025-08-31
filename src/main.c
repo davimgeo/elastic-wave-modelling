@@ -40,7 +40,7 @@ int main(void)
   geomPar geom = 
   {
       .sIdx = 575,
-      .sIdz = 324
+      .sIdz = 83
   };
 
   fdFields fld = {0};
@@ -52,8 +52,7 @@ int main(void)
   mpar.vs  = read_f32_bin_model(mpar.vs_path, mpar.nx, mpar.nz);
   mpar.rho = read_f32_bin_model(mpar.rho_path, mpar.nx, mpar.nz);
 
-  fd(&fld, mpar.vp, mpar.vs, mpar.rho, mpar.nx, mpar.nz, wpar.nt,
-    wpar.wavelet, wpar.dt, mpar.dx, mpar.dz, geom.sIdx, geom.sIdz, &snap);
+  fd(&fld, &mpar, &wpar, &geom, &snap);
 
   char *filenames[] = {"txx.bin", "txz.bin", "tzz.bin", "vx.bin", "vz.bin"};
   char paths[5][256]; 
