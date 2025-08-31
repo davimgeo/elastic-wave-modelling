@@ -3,8 +3,7 @@
 
 #include "bin.h"
 
-float*
-read_f32_bin_model(const char *path, int nx, int nz)
+float* read_f32_bin_model(const char *path, int nx, int nz)
 {
   FILE *model_file = fopen(path, "rb"); 
   if (model_file == NULL) 
@@ -34,8 +33,7 @@ read_f32_bin_model(const char *path, int nx, int nz)
   return model;
 }
 
-void
-write_f32_bin_model(const char *path, float *model, int nx, int nz)
+void write_f32_bin_model(const char *path, float *model, int nx, int nz)
 {
   FILE *model_file = fopen(path, "wb");
   if (model_file == NULL) 

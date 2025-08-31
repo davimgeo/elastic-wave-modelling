@@ -1,22 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-# PATH = "data/output/wavelet.txt"
-#
-# ricker = np.loadtxt(PATH)
-#
-# t = np.linspace(0, 1001*4e-3, len(ricker))
-#
-# plt.plot(t, ricker)
-#
-# plt.show() 
-#
-# PATH = "data/output/snapshots/vx_501x501_tid_495.bin"
-PATH = "data/output/txx.bin"
-nx, ny = 501, 501
+PATH = "data/output/snapshots/txx_501x501_tid_800.bin"
+#PATH = "data/output/txx.bin"
+#PATH = "data/input/model_rho_2d_1150x648.bin"
+#PATH = "data/output/vp.bin"
 
-model = np.fromfile(PATH, dtype=np.float32)
-model = model.reshape((nx, ny), order='F') 
+nx, nz = 501, 501
+#nx, nz = 1150, 648
 
-plt.imshow(model.T, cmap='gray') 
-plt.show()
+model = np.fromfile(PATH, dtype=np.float32, count = nx * nz).reshape([nz, nx], order='F') 
+
+plt.imshow(model, cmap='gray')
+# plt.show()
+plt.savefig("model.png")  # Save instead of showing
+print("Plot saved as model.png")

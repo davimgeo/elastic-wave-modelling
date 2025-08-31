@@ -8,14 +8,15 @@ typedef struct {
   char *rho_path;
   char *vs_path;
   char *vp_path;
-  int         nx;
-  int         nz;
-  float       dx;
-  float       dz;
 
-  float *     rho;
-  float *     vs;
-  float *     vp;
+  int   nx;
+  int   nz;
+  float dx;
+  float dz;
+
+  float *rho;
+  float *vs;
+  float *vp;
 } modelPar;
 
 typedef struct {

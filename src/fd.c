@@ -19,13 +19,13 @@
 
 #define PRINT(x) printf("%f\n", (x))
 
-static const float vp  = 1500.0f;
-static const float vs  = 0.0f;
-static const float rho = 1000.0f;
+#define AVG(a, b) (0.5f * ((a) + (b)))
 
-static const float M = vs * vs * rho;
-static const float L = vp * vp * rho - 2.0f * M;
-static const float B = 1.0f / rho;
+#define DOUBLE(x) ((x) * (x))
+
+#define MI(rho, vs, i, j, nz) \
+    ((rho)[(i) + (j) * (nz)] * \
+     DOUBLE((vs)[(i) + (j) * (nz)]))
 
 float* ricker(int nt, float dt, float fmax) 
 {
@@ -69,7 +69,7 @@ get_snapshots
 
 static void 
 fd_velocity_8E2T
-( modelPar *model, 
+( float    *rho, 
   fdFields *fld, 
   int       nx, 
   int       nz,
@@ -77,7 +77,7 @@ fd_velocity_8E2T
   float     dz, 
   float     dt )
 {
-#pragma omp parallel for
+  #pragma omp parallel for
   for (int index = 0; index < nx * nz; index++)
   {
     int i = (int)(index % nz);
@@ -97,7 +97,9 @@ fd_velocity_8E2T
            FDM8E3 * (fld->txz[(i - 1) + j * nz] - fld->txz[(i + 2) + j * nz]) +
            FDM8E4 * (fld->txz[(i + 1) + j * nz] - fld->txz[i + j * nz])) / dz;
 
-      fld->vx[i + j * nz] += dt * B * (dtxx_dx + dtxz_dz);
+      float inv_rho_1 = 1.0f / AVG(rho[i + j * nz], rho[i + (j+1) * nz]);
+
+      fld->vx[i + j * nz] += dt * inv_rho_1 * (dtxx_dx + dtxz_dz);
     }
 
     if ((i > 4) && (i < nz - 4) && (j >= 4) && (j < nx - 4))
@@ -114,14 +116,18 @@ fd_velocity_8E2T
            FDM8E3 * (fld->tzz[(i - 2) + j * nz] - fld->tzz[(i + 1) + j * nz]) +
            FDM8E4 * (fld->tzz[i + j * nz] - fld->tzz[(i - 1) + j * nz])) / dz;
 
-      fld->vz[i + j * nz] += dt * B * (dtxz_dx + dtzz_dz);
+      float inv_rho_2 = 1.0f / AVG(rho[i + j * nz], rho[(i+1) + j * nz]);
+
+      fld->vz[i + j * nz] += dt * inv_rho_2 * (dtxz_dx + dtzz_dz);
     }
   }
 }
 
 static void 
 fd_pressure_8E2T
-( modelPar *model, 
+( float    *vp,
+  float    *vs,
+  float    *rho,
   fdFields *fld, 
   int       nx, 
   int       nz,
@@ -129,7 +135,7 @@ fd_pressure_8E2T
   float     dz, 
   float     dt )
 {
-#pragma omp parallel for
+  #pragma omp parallel for
   for (int index = 0; index < nx * nz; index++)
   {
     int i = (int)(index % nz);
@@ -149,8 +155,20 @@ fd_pressure_8E2T
            FDM8E3 * (fld->vz[(i - 1) + j * nz] - fld->vz[(i + 2) + j * nz]) +
            FDM8E4 * (fld->vz[(i + 1) + j * nz] - fld->vz[i + j * nz])) / dz;
 
-      fld->txx[i + j * nz] += dt * ((L + 2 * M) * dvx_dx + L * dvz_dz);
-      fld->tzz[i + j * nz] += dt * ((L + 2 * M) * dvz_dz + L * dvx_dx);
+      float lambda =
+          rho[i + j * nz] *
+         (DOUBLE(vp[i + j * nz]) - 2.0f *
+          DOUBLE(vs[i + j * nz]));
+
+      float mi = MI(rho, vs, i, j, nz);
+
+      fld->txx[i + j * nz] +=
+          dt * ((lambda + 2.0f * mi) * dvx_dx +
+                 lambda * dvz_dz);
+
+      fld->tzz[i + j * nz] +=
+          dt * ((lambda + 2.0f * mi) * dvz_dz +
+                 lambda * dvx_dx);
     }
 
     if ((i >= 4) && (i <= nz - 4) && (j >= 4) && (j <= nx - 4))
@@ -167,20 +185,37 @@ fd_pressure_8E2T
            FDM8E3 * (fld->vz[i + (j - 2) * nz] - fld->vz[i + (j + 1) * nz]) +
            FDM8E4 * (fld->vz[i + j * nz] - fld->vz[i + (j - 1) * nz])) / dx;
 
-      fld->txz[i + j * nz] += dt * M * (dvx_dz + dvz_dx);
+      float mi1 = MI(rho, vs, i,   j,   nz);
+      float mi2 = MI(rho, vs, i+1, j,   nz);
+      float mi3 = MI(rho, vs, i,   j+1, nz);
+      float mi4 = MI(rho, vs, i+1, j+1, nz);
+
+      float mi_avg = 4.0f / ((1.0f / mi1) + (1.0f / mi2) +
+                             (1.0f / mi3) + (1.0f / mi4));
+
+      fld->txz[i + j * nz] += dt * mi_avg * (dvx_dz + dvz_dx);
     }
   }
 }
 
 void 
 fd
-( fdFields   *fld, 
-  modelPar *model, 
-  geomPar   *geom, 
-  snapshots *snap,
-  waveletPar *wav )
+( fdFields  *fld, 
+  float     *vp,
+  float     *vs,
+  float     *rho,
+  int        nx,
+  int        nz,
+  int        nt,
+  float     *wavelet,
+  float      dt,
+  float      dx,
+  float      dz,
+  int        sIdx,
+  int        sIdz,
+  snapshots *snap )
 {
-  size_t n = model->nx * model->nz;
+  size_t n = nx * nz;
 
   fld->txx = (float *)calloc(n, sizeof(float));
   fld->tzz = (float *)calloc(n, sizeof(float));
@@ -194,22 +229,17 @@ fd
     return;
   }
 
-  int nx   = model->nx;
-  int nz   = model->nz;
-  float dx = model->dx;
-  float dz = model->dz;
+  int snap_ratio = nt / snap->snap_num;
 
-  int snap_ratio = wav->nt / snap->snap_num;
-
-  for (int t = 0; t < wav->nt; t++)
+  for (int t = 0; t < nt; t++)
   {
-    int s_idx = geom->sIdz + geom->sIdx * nz;
+    int s_idx = sIdz + sIdx * nz;
 
-    fld->txx[s_idx] += wav->wavelet[t] / (dx * dz);
-    fld->tzz[s_idx] += wav->wavelet[t] / (dx * dz);
+    fld->txx[s_idx] += wavelet[t] / (dx * dz);
+    fld->tzz[s_idx] += wavelet[t] / (dx * dz);
 
-    fd_velocity_8E2T(model, fld, nx, nz, dx, dz, wav->dt);
-    fd_pressure_8E2T(model, fld, nx, nz, dx, dz, wav->dt);
+    fd_velocity_8E2T(rho, fld, nx, nz, dx, dz, dt);
+    fd_pressure_8E2T(vp, vs, rho, fld, nx, nz, dx, dz, dt);
 
     if (snap->snap_bool)
       get_snapshots(snap_ratio, fld->txx, t, nx, nz);
