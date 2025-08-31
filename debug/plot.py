@@ -1,17 +1,26 @@
-import matplotlib.pyplot as plt
+import os
 import numpy as np
+import matplotlib.pyplot as plt
 
-PATH = "data/output/snapshots/txx_501x501_tid_800.bin"
-#PATH = "data/output/txx.bin"
-#PATH = "data/input/model_rho_2d_1150x648.bin"
-#PATH = "data/output/vp.bin"
+PATH = "data/output/snapshots/"
 
-nx, nz = 501, 501
-#nx, nz = 1150, 648
+nx, nz = 1150, 648
 
-model = np.fromfile(PATH, dtype=np.float32, count = nx * nz).reshape([nz, nx], order='F') 
+salt = np.fromfile(
+        "data/input/salt_model/model_vp_2d_1150x648.bin", dtype=np.float32, count=nx * nz
+).reshape([nz, nx], order='F')
 
-plt.imshow(model, cmap='gray')
-# plt.show()
-plt.savefig("model.png")  # Save instead of showing
-print("Plot saved as model.png")
+snap = np.fromfile(
+        "data/output/snapshots/txx_1150x648_tid_1494.bin", dtype=np.float32, count=nx*nz
+).reshape([nz, nx], order='F')
+
+scale = 0.8 * np.std(snap)
+
+plt.imshow(snap, cmap='Greys', vmin=-scale, vmax=scale)
+plt.imshow(salt, alpha=0.5)
+
+plt.show()
+
+
+
+

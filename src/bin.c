@@ -19,7 +19,7 @@ float* read_f32_bin_model(const char *path, int nx, int nz)
   {
     for (int j = 0; j < nz; j++) 
     {
-      if (fread(&model[i + j * nz], sizeof(float), 1, model_file) != 1) 
+      if (fread(&model[i * nz + j], sizeof(float), 1, model_file) != 1) 
       {
         printf("Error reading from file at (%d,%d)\n", i, j);
         free(model);
@@ -46,7 +46,7 @@ void write_f32_bin_model(const char *path, float *model, int nx, int nz)
   {
       for (int j = 0; j < nz; j++) 
       {
-        if (fwrite(&model[i + j * nz], sizeof(float), 1, model_file) != 1) 
+        if (fwrite(&model[i * nz + j], sizeof(float), 1, model_file) != 1) 
         {
           printf("Error writing to file at (%d,%d)\n", i, j);
           fclose(model_file);

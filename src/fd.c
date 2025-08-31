@@ -23,10 +23,6 @@
 
 #define DOUBLE(x) ((x) * (x))
 
-#define MI(rho, vs, i, j, nz) \
-    ((rho)[(i) + (j) * (nz)] * \
-     DOUBLE((vs)[(i) + (j) * (nz)]))
-
 float* ricker(int nt, float dt, float fmax) 
 {
   float* ricker = (float *)calloc((size_t)nt, sizeof(float));
@@ -155,12 +151,12 @@ fd_pressure_8E2T
            FDM8E3 * (fld->vz[(i - 1) + j * nz] - fld->vz[(i + 2) + j * nz]) +
            FDM8E4 * (fld->vz[(i + 1) + j * nz] - fld->vz[i + j * nz])) / dz;
 
-      float lambda =
-          rho[i + j * nz] *
-         (DOUBLE(vp[i + j * nz]) - 2.0f *
-          DOUBLE(vs[i + j * nz]));
+      float vp2 = vp[i + j * nz] * vp[i + j * nz];
+      float vs2 = vs[i + j * nz] * vs[i + j * nz];
 
-      float mi = MI(rho, vs, i, j, nz);
+      float lambda = rho[i + j * nz] * (vp2 - 2.0f * vs2);
+
+      float mi     = rho[i + j * nz] * vs2;
 
       fld->txx[i + j * nz] +=
           dt * ((lambda + 2.0f * mi) * dvx_dx +
@@ -185,10 +181,15 @@ fd_pressure_8E2T
            FDM8E3 * (fld->vz[i + (j - 2) * nz] - fld->vz[i + (j + 1) * nz]) +
            FDM8E4 * (fld->vz[i + j * nz] - fld->vz[i + (j - 1) * nz])) / dx;
 
-      float mi1 = MI(rho, vs, i,   j,   nz);
-      float mi2 = MI(rho, vs, i+1, j,   nz);
-      float mi3 = MI(rho, vs, i,   j+1, nz);
-      float mi4 = MI(rho, vs, i+1, j+1, nz);
+      float vs2       = vs[i + j * nz] * vs[i + j * nz];
+      float vs2_xp    = vs[(i+1) + j * nz] * vs[i + j * nz];
+      float vs2_zp    = vs[i + (j+1) * nz] * vs[i + (j+1) * nz];
+      float vs2_xp_zp = vs[(i+1) + (j+1) * nz] * vs[(i+1) + (j+1) * nz];
+
+      float mi1 = rho[i + j * nz] * vs2;
+      float mi2 = rho[(i+1) + j * nz] * vs2_xp;
+      float mi3 = rho[i + (j+1) * nz] * vs2_zp;
+      float mi4 = rho[(i+1) + (j+1) * nz] * vs2_xp_zp;
 
       float mi_avg = 4.0f / ((1.0f / mi1) + (1.0f / mi2) +
                              (1.0f / mi3) + (1.0f / mi4));

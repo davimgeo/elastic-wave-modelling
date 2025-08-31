@@ -15,32 +15,32 @@ int main(void)
 
   modelPar mpar = 
   {
-      .rho_path = "data/input/homo_model/model_rho_2d_501x501.bin",
-      .vp_path  = "data/input/homo_model/model_vp_2d_501x501.bin",
-      .vs_path  = "data/input/homo_model/model_vs_2d_501x501.bin",
-      .nx       = 501,
-      .nz       = 501,
-      .dx       = 10.0f,  
-      .dz       = 10.0f
+      .rho_path = "data/input/salt_model/model_rho_2d_1150x648.bin",
+      .vp_path  = "data/input/salt_model/model_vp_2d_1150x648.bin",
+      .vs_path  = "data/input/salt_model/model_vs_2d_1150x648.bin",
+      .nx       = 1150,
+      .nz       = 648,
+      .dx       = 5.0f,  
+      .dz       = 5.0f
   };
 
   waveletPar wpar = 
   {
-      .nt   = 1001,
-      .dt   = 1e-3f,
-      .fmax = 30
+      .nt   = 5001,
+      .dt   = 4.4e-4f,
+      .fmax = 20
   };
   
   snapshots snap = 
   {
       .snap_bool = 1,
-      .snap_num  = 5
+      .snap_num  = 30
   };
 
   geomPar geom = 
   {
-      .sIdx = 250,
-      .sIdz = 250
+      .sIdx = 575,
+      .sIdz = 324
   };
 
   fdFields fld = {0};
