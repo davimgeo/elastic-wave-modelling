@@ -35,7 +35,112 @@ float* ricker(int nt, float dt, float fmax)
   return ricker;
 }
 
-static inline void generate_vp(fdFields *fld, float *calc_p, size_t nx, size_t nz)
+void set_boundary(fdFields *fld, modelPar *mld)
+{
+  /* ensures the grid n_abc is even to avoid error */
+  if (mld->n_abc % 2) 
+  {
+      perror("Extent must be an even integer.");
+      return;
+  }
+
+  mld->n_abc *= 2;
+
+  int half_ext = mld->n_abc / 2;
+
+  /* Fills the padded array with the original array */
+  for (int i = 0; i < mld->nx; i++) 
+  {
+    for (int j = 0; j < mld->nz; j++) 
+    {
+      padded_arr[(i + half_ext) + (j + half_ext) * mld->nz] = arr[i][j];
+    }
+  }
+
+  /* Fills the top of the padded array */
+  for (int i = 0; i < half_ext; i++) 
+  {
+    for (int j = 0; j < mld->nz; j++) 
+    {
+      /* uses the first line to pad */
+      padded_arr[i + (j + half_ext) * mld->nz] = arr[0][j];
+    }
+  }
+
+  /* Fills the bottom of the padded array */
+  for (int i = mld->nx + half_ext; i < mld->nx + mld->n_abc; i++) 
+  {
+    for (int j = 0; j < mld->nz; j++) 
+    {
+      /* uses the last line to pad */
+      padded_arr[i + (j + half_ext) * mld->nz] = arr[mld->nx - 1][j];
+    }
+  }
+
+  /* Fills the right of the padded array */
+  for (int i = 0; i < mld->nx; i++) 
+  {
+    for (int j = mld->nz + half_ext; j < mld->nz + mld->n_abc; j++) 
+    {
+      /* uses the last column to pad */
+      padded_arr[(i + half_ext) + j * mld->nz] = arr[i][mld->nz - 1];
+    }
+  }
+
+  /* Fills the left of the padded array */
+  for (int i = 0; i < mld->nx; i++) 
+  {
+    for (int j = 0; j < half_ext; j++) 
+    {
+      /* uses the first column to pad */
+      padded_arr[(i + half_ext) + j * mld->nz] = arr[i][0];
+    }
+  }
+
+  /* Fills the bottom right corner of the padded array */
+  for (int i = mld->nx + half_ext; i < mld->nx + mld->n_abc; i++) 
+  {
+    for (int j = mld->nz + half_ext; j < mld->nz + mld->n_abc; j++) 
+    {
+      /* uses the bottom right corner element pad */
+      padded_arr[i + j * mld->nz] = arr[mld->nx - 1][mld->nz - 1];
+    }
+  }
+
+  /* Fills the bottom left corner of the padded array */
+  for (int i = mld->nx + half_ext; i < mld->nx + mld->n_abc; i++) 
+  {
+    for (int j = 0; j < half_ext; j++) 
+    {
+      /* uses the bottom left corner element pad */
+      padded_arr[i + j * nz] = arr[mld->nx - 1][0];
+    }
+  }
+
+  /* Fills the top right corner of the padded array */
+  for (int i = 0; i < half_ext; i++) 
+  {
+    for (int j = mld->nz + half_ext; j < mld->nz + mld->n_abc; j++) 
+    {
+      /* uses the top right corner element pad */
+      padded_arr[i + j * nz] = arr[0][mld->nz - 1];
+    }
+  }
+
+  /* Fills the top left corner of the padded array */
+  for (int i = 0; i < half_ext; i++) 
+  {
+    for (int j = 0; j < half_ext; j++) 
+    {
+      /* uses the top left corner element pad */
+      padded_arr[i + j * nz] = arr[0][0];
+    }
+  }
+
+  return padded_arr;
+}
+
+static inline void generate_p(fdFields *fld, float *calc_p, size_t nx, size_t nz)
 {
 	#pragma omp parallel for schedule(static)
 	for (size_t index = 0; index < nx * nz; index++) 
@@ -43,9 +148,7 @@ static inline void generate_vp(fdFields *fld, float *calc_p, size_t nx, size_t n
 		size_t i   = index % nz;
 		size_t j   = index / nz;
 
-		size_t idx = i + j * nz;
-
-		calc_p[idx] = 0.5f * (fld->txx[idx] + fld->tzz[idx]);
+		calc_p[i + j * nz] = 0.5f * (fld->txx[i + j * nz] + fld->tzz[i + j * nz]);
 	}
 }
 
@@ -60,7 +163,7 @@ get_snapshots
 {
   if (!(time_step % snap_ratio))
   {
-    generate_vp(fld, calc_vp, (size_t)nx, (size_t)nz);
+    generate_p(fld, calc_vp, (size_t)nx, (size_t)nz);
 
     const char *filenames[] = {
       "vp_%dx%d_tid_%d.bin",
@@ -254,6 +357,9 @@ fd
   }
 
   int snap_ratio = wav->nt / snap->snap_num;
+
+  int nxx = mld->nx + 2.0f * mld->n_abc;
+  int nzz = mld->nz + 2.0f * mld->n_abc;
 
   for (int t = 0; t < wav->nt; t++)
   {

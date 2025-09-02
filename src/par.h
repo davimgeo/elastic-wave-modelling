@@ -10,10 +10,11 @@ typedef struct
   char *vs_path;
   char *vp_path;
 
-  int   nx;
-  int   nz;
-  float dx;
-  float dz;
+  int      nx;
+  int      nz;
+  int   n_abc;
+  float    dx;
+  float    dz;
 
   float *rho;
   float *vs;
