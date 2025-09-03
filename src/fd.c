@@ -40,8 +40,8 @@ void set_boundary(fdFields *fld, modelPar *mld)
   /* ensures the grid n_abc is even to avoid error */
   if (mld->n_abc % 2) 
   {
-      perror("Extent must be an even integer.");
-      return;
+    perror("Extent must be an even integer.");
+    return;
   }
 
   mld->n_abc *= 2;
