@@ -92,6 +92,7 @@ void set_boundary(fdFields *fld, modelPar *mld)
     }
   }
 
+  /* swap pointers to new arr */
   free(mld->vp);
   free(mld->vs);
   free(mld->rho);

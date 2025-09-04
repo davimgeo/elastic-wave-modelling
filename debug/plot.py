@@ -12,7 +12,7 @@ nxx, nzz = nx + 2*nb, nz + 2*nb
 
 model = np.fromfile(PATH, dtype=np.float32, count=nxx * nzz).reshape([nzz, nxx], order='F')
 
-plt.imshow(model)
+plt.imshow(model, cmap='Greys')
 
 plt.show()
 
