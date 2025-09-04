@@ -20,6 +20,7 @@ int main(void)
       .vs_path  = "data/input/salt_model/model_vs_2d_1150x648.bin",
       .nx       = 1150,
       .nz       = 648,
+      .nb       = 30,
       .dx       = 5.0f,  
       .dz       = 5.0f
   };
@@ -48,25 +49,19 @@ int main(void)
   wpar.wavelet = ricker(wpar.nt, wpar.dt, wpar.fmax);
 
   mpar.vp  = read_f32_bin_model(mpar.vp_path, mpar.nx, mpar.nz);
-  write_f32_bin_model("data/output/vp.bin", mpar.vp, mpar.nx, mpar.nz);
   mpar.vs  = read_f32_bin_model(mpar.vs_path, mpar.nx, mpar.nz);
   mpar.rho = read_f32_bin_model(mpar.rho_path, mpar.nx, mpar.nz);
 
-  fd(&fld, &mpar, &wpar, &geom, &snap);
+  set_boundary(&fld, &mpar);
 
-  char *filenames[] = {"txx.bin", "txz.bin", "tzz.bin", "vx.bin", "vz.bin"};
-  char paths[5][256]; 
+  int nxx = mpar.nx + 2 * mpar.nb;
+  int nzz = mpar.nz + 2 * mpar.nb;
 
-  for (int i = 0; i < 5; i++) 
-  {
-      snprintf(paths[i], sizeof(paths[i]), "%s%s", OUTPUT_PATH, filenames[i]);
-  }
+  write_f32_bin_model("data/output/vp.bin", mpar.vp, nxx, nzz);
+  write_f32_bin_model("data/output/vs.bin", mpar.vs, nxx, nzz);
+  write_f32_bin_model("data/output/rho.bin", mpar.rho, nxx, nzz);
 
-  // write_f32_bin_model(txx_path, fld.txx, mpar.nx, mpar.nz);
-  // write_f32_bin_model(txz_path, fld.txz, mpar.nx, mpar.nz);
-  // write_f32_bin_model(tzz_path, fld.tzz, mpar.nx, mpar.nz);
-  // write_f32_bin_model(vx_path,  fld.vx,  mpar.nx, mpar.nz);
-  // write_f32_bin_model(vz_path,  fld.vz,  mpar.nx, mpar.nz);
+  // fd(&fld, &mpar, &wpar, &geom, &snap);
 
   clock_gettime(CLOCK_MONOTONIC, &end);
 

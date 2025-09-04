@@ -28,9 +28,19 @@ for i in range(nb, nx+nb):
 # topo e base no mesmo loop
 # preencher a laterais no mesmo loop
 
-for i in range(0, nb):
-  for j in range(nxx):
-    pass
+for j in range(nb, nx + nb):
+    for i in range(nb):
+        # top
+        model[i, j] = model[nb, j]
+        # bottom
+        model[nz + nb + i, j] = model[nz + nb - 1, j]
+
+for i in range(nzz):
+    for j in range(nb):
+        # left
+        model[i, j] = model[i, nb]
+        # right
+        model[i, nx + nb + j] = model[i, nx + nb - 1]
 
 plt.imshow(model, aspect="auto")
 

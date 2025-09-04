@@ -35,120 +35,80 @@ float* ricker(int nt, float dt, float fmax)
   return ricker;
 }
 
+/* its giving seg fault, I need to expand my model first it seems*/
 void set_boundary(fdFields *fld, modelPar *mld)
 {
-  /* ensures the grid n_abc is even to avoid error */
-  if (mld->n_abc % 2) 
+  int nb  = mld->nb;
+  int nx  = mld->nx;
+  int nz  = mld->nz;
+
+  int nxx = nx + 2 * nb;   
+  int nzz = nz + 2 * nb;  
+
+  size_t n = nxx * nzz;
+
+  float *vp_ext  = (float *)calloc(n, sizeof(float));
+  float *vs_ext  = (float *)calloc(n, sizeof(float));
+  float *rho_ext = (float *)calloc(n, sizeof(float));
+
+  /* copy original arr into ext */
+  for (int j = 0; j < nx; j++) 
   {
-    perror("Extent must be an even integer.");
-    return;
-  }
-
-  mld->n_abc *= 2;
-
-  int half_ext = mld->n_abc / 2;
-
-  /* Fills the padded array with the original array */
-  for (int i = 0; i < mld->nx; i++) 
-  {
-    for (int j = 0; j < mld->nz; j++) 
+    for (int i = 0; i < nz; i++) 
     {
-      padded_arr[(i + half_ext) + (j + half_ext) * mld->nz] = arr[i][j];
+      vp_ext[(i + nb) + (j + nb) * nzz]  = mld->vp[i + j * nz];
+      vs_ext[(i + nb) + (j + nb) * nzz]  = mld->vs[i + j * nz];
+      rho_ext[(i + nb) + (j + nb) * nzz] = mld->rho[i + j * nz];
     }
   }
 
-  /* Fills the top of the padded array */
-  for (int i = 0; i < half_ext; i++) 
+  /* pad top and bottom respectively */
+  for (int j = nb; j < nx+nb; j++) 
   {
-    for (int j = 0; j < mld->nz; j++) 
+    for (int i = 0; i < nb; i++) 
     {
-      /* uses the first line to pad */
-      padded_arr[i + (j + half_ext) * mld->nz] = arr[0][j];
+      vp_ext[i + j * nzz]  = vp_ext[nb + j * nzz];
+      vs_ext[i + j * nzz]  = vs_ext[nb + j * nzz];
+      rho_ext[i + j * nzz] = rho_ext[nb + j * nzz];
+
+      vp_ext[(nz + nb + i) + j * nzz]  = vp_ext[(nz + nb - 1) + j * nzz];
+      vs_ext[(nz + nb + i) + j * nzz]  = vs_ext[(nz + nb - 1) + j * nzz];
+      rho_ext[(nz + nb + i) + j * nzz] = rho_ext[(nz + nb - 1) + j * nzz];
     }
   }
 
-  /* Fills the bottom of the padded array */
-  for (int i = mld->nx + half_ext; i < mld->nx + mld->n_abc; i++) 
+  /* pad left and right respectively */
+  for (int i = 0; i < nzz; i++) 
   {
-    for (int j = 0; j < mld->nz; j++) 
+    for (int j = 0; j < nb; j++) 
     {
-      /* uses the last line to pad */
-      padded_arr[i + (j + half_ext) * mld->nz] = arr[mld->nx - 1][j];
+      vp_ext[i + j * nzz]  = vp_ext[i + nb * nzz];
+      vs_ext[i + j * nzz]  = vs_ext[i + nb * nzz];
+      rho_ext[i + j * nzz] = rho_ext[i + nb * nzz];
+
+      vp_ext[i + (nx + nb + j) * nzz]  = vp_ext[i + (nx + nb - 1) * nzz];
+      vs_ext[i + (nx + nb + j) * nzz]  = vs_ext[i + (nx + nb - 1) * nzz];
+      rho_ext[i + (nx + nb + j) * nzz] = rho_ext[i + (nx + nb - 1) * nzz];  
     }
   }
 
-  /* Fills the right of the padded array */
-  for (int i = 0; i < mld->nx; i++) 
-  {
-    for (int j = mld->nz + half_ext; j < mld->nz + mld->n_abc; j++) 
-    {
-      /* uses the last column to pad */
-      padded_arr[(i + half_ext) + j * mld->nz] = arr[i][mld->nz - 1];
-    }
-  }
+  free(mld->vp);
+  free(mld->vs);
+  free(mld->rho);
 
-  /* Fills the left of the padded array */
-  for (int i = 0; i < mld->nx; i++) 
-  {
-    for (int j = 0; j < half_ext; j++) 
-    {
-      /* uses the first column to pad */
-      padded_arr[(i + half_ext) + j * mld->nz] = arr[i][0];
-    }
-  }
-
-  /* Fills the bottom right corner of the padded array */
-  for (int i = mld->nx + half_ext; i < mld->nx + mld->n_abc; i++) 
-  {
-    for (int j = mld->nz + half_ext; j < mld->nz + mld->n_abc; j++) 
-    {
-      /* uses the bottom right corner element pad */
-      padded_arr[i + j * mld->nz] = arr[mld->nx - 1][mld->nz - 1];
-    }
-  }
-
-  /* Fills the bottom left corner of the padded array */
-  for (int i = mld->nx + half_ext; i < mld->nx + mld->n_abc; i++) 
-  {
-    for (int j = 0; j < half_ext; j++) 
-    {
-      /* uses the bottom left corner element pad */
-      padded_arr[i + j * nz] = arr[mld->nx - 1][0];
-    }
-  }
-
-  /* Fills the top right corner of the padded array */
-  for (int i = 0; i < half_ext; i++) 
-  {
-    for (int j = mld->nz + half_ext; j < mld->nz + mld->n_abc; j++) 
-    {
-      /* uses the top right corner element pad */
-      padded_arr[i + j * nz] = arr[0][mld->nz - 1];
-    }
-  }
-
-  /* Fills the top left corner of the padded array */
-  for (int i = 0; i < half_ext; i++) 
-  {
-    for (int j = 0; j < half_ext; j++) 
-    {
-      /* uses the top left corner element pad */
-      padded_arr[i + j * nz] = arr[0][0];
-    }
-  }
-
-  return padded_arr;
+  mld->vp  = vp_ext;
+  mld->vs  = vs_ext;
+  mld->rho = rho_ext;
 }
 
 static inline void generate_p(fdFields *fld, float *calc_p, size_t nx, size_t nz)
 {
-	#pragma omp parallel for schedule(static)
-	for (size_t index = 0; index < nx * nz; index++) 
+	for (size_t i = 0; i < nx; i++) 
 	{
-		size_t i   = index % nz;
-		size_t j   = index / nz;
-
-		calc_p[i + j * nz] = 0.5f * (fld->txx[i + j * nz] + fld->tzz[i + j * nz]);
+    for (size_t j = 0; j < nz; j++) 
+    {
+      calc_p[i + j * nz] = 0.5f * (fld->txx[i + j * nz] + fld->tzz[i + j * nz]);
+    }
 	}
 }
 
@@ -248,7 +208,10 @@ fd_velocity_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav)
 }
 
 static void 
-fd_pressure_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav)
+fd_pressure_8E2T
+( modelPar   *mdl, 
+  fdFields   *fld, 
+  waveletPar *wav )
 {
 	int   nx  = mdl->nx;
 	int   nz  = mdl->nz;
@@ -358,8 +321,8 @@ fd
 
   int snap_ratio = wav->nt / snap->snap_num;
 
-  int nxx = mld->nx + 2.0f * mld->n_abc;
-  int nzz = mld->nz + 2.0f * mld->n_abc;
+  // int nxx = mld->nx + 2 * mld->nb;
+  // int nzz = mld->nz + 2 * mld->nb;
 
   for (int t = 0; t < wav->nt; t++)
   {

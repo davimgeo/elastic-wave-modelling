@@ -1,11 +1,11 @@
 #ifndef FD_H
 #define FD_H
 
-#include <stdio.h>
-
 #include "par.h"
 
 float* ricker(int nt, float dt, float fmax);
+
+void set_boundary(fdFields *fld, modelPar *mld);
 
 void 
 fd
