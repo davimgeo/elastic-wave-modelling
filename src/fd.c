@@ -35,7 +35,6 @@ float* ricker(int nt, float dt, float fmax)
   return ricker;
 }
 
-/* its giving seg fault, I need to expand my model first it seems*/
 void set_boundary(fdFields *fld, modelPar *mld)
 {
   int nb  = mld->nb;
@@ -93,20 +92,17 @@ void set_boundary(fdFields *fld, modelPar *mld)
   }
 
   /* swap pointers to new arr */
-  free(mld->vp);
-  free(mld->vs);
-  free(mld->rho);
-
-  mld->vp  = vp_ext;
-  mld->vs  = vs_ext;
-  mld->rho = rho_ext;
+  free(mld->vp); mld->vp = vp_ext;
+  free(mld->vs); mld->vs = vs_ext;
+  free(mld->rho); mld->rho = rho_ext;
 }
 
-static inline void generate_p(fdFields *fld, float *calc_p, size_t nx, size_t nz)
+/* its truncating in 648~ for some reason */
+static inline void generate_p(fdFields *fld, float *calc_p, int nx, int nz)
 {
-	for (size_t i = 0; i < nx; i++) 
+	for (size_t i = 0; i < nz; i++) 
 	{
-    for (size_t j = 0; j < nz; j++) 
+    for (size_t j = 0; j < nx; j++) 
     {
       calc_p[i + j * nz] = 0.5f * (fld->txx[i + j * nz] + fld->tzz[i + j * nz]);
     }
@@ -124,7 +120,7 @@ get_snapshots
 {
   if (!(time_step % snap_ratio))
   {
-    generate_p(fld, calc_vp, (size_t)nx, (size_t)nz);
+    generate_p(fld, calc_vp, nx, nz);
 
     const char *filenames[] = {
       "vp_%dx%d_tid_%d.bin",
