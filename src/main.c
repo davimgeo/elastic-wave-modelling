@@ -1,7 +1,5 @@
 #include <time.h>
 
-#include "../debug/debug.h"
-
 #include "par.h"
 #include "bin.h"
 #include "fd.h"
@@ -29,7 +27,7 @@ int main(void)
   {
       .nt   = 5001,
       .dt   = 4.4e-4f,
-      .fmax = 20
+      .fmax = 30
   };
   
   snapshots snap = 
@@ -40,8 +38,8 @@ int main(void)
 
   geomPar geom = 
   {
-      .sIdx = 575,
-      .sIdz = 83
+      .sIdx = 0.5 * (mpar.nx + 2 * mpar.nb),
+      .sIdz = 0.5 * (mpar.nz + 2 * mpar.nb)
   };
 
   fdFields fld = {0};
@@ -52,14 +50,14 @@ int main(void)
   mpar.vs  = read_f32_bin_model(mpar.vs_path, mpar.nx, mpar.nz);
   mpar.rho = read_f32_bin_model(mpar.rho_path, mpar.nx, mpar.nz);
 
-  //set_boundary(&fld, &mpar);
+  set_boundary(&fld, &mpar);
 
-  //int nxx = mpar.nx + 2 * mpar.nb;
-  //int nzz = mpar.nz + 2 * mpar.nb;
-
-  //write_f32_bin_model("data/output/vp.bin", mpar.vp, nxx, nzz);
-  //write_f32_bin_model("data/output/vs.bin", mpar.vs, nxx, nzz);
-  //write_f32_bin_model("data/output/rho.bin", mpar.rho, nxx, nzz);
+  // int nxx = mpar.nx + 2 * mpar.nb;
+  // int nzz = mpar.nz + 2 * mpar.nb;
+  //
+  // write_f32_bin_model("data/output/vp.bin", mpar.vp, nxx, nzz);
+  // write_f32_bin_model("data/output/vs.bin", mpar.vs, nxx, nzz);
+  // write_f32_bin_model("data/output/rho.bin", mpar.rho, nxx, nzz);
 
   fd(&fld, &mpar, &wpar, &geom, &snap);
 
