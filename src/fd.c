@@ -122,7 +122,7 @@ get_snapshots
     generate_p(fld, calc_vp, nxx, nzz);
 
     const char *filenames[] = {
-      "vp_%dx%d_tid_%d.bin",
+      "p_%dx%d_tid_%d.bin",
       "vx_%dx%d_tid_%d.bin", 
       "vz_%dx%d_tid_%d.bin"
     };

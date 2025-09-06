@@ -33,7 +33,7 @@ int main(void)
   snapshots snap = 
   {
       .snap_bool = 1,
-      .snap_num  = 30
+      .snap_num  = 100
   };
 
   geomPar geom = 
