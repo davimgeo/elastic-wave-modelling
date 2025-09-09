@@ -13,33 +13,34 @@ int main(void)
 
   modelPar mpar = 
   {
-      .rho_path = "data/input/model_rho_2d_1150x648.bin",
-      .vp_path  = "data/input/model_vp_2d_1150x648.bin",
-      .vs_path  = "data/input/model_vs_2d_1150x648.bin",
-      .nx       = 1150,
-      .nz       = 648,
-      .nb       = 30,
-      .dx       = 5.0f,  
-      .dz       = 5.0f
+    .rho_path = "data/input/model_rho_2d_1150x648.bin",
+    .vp_path  = "data/input/model_vp_2d_1150x648.bin",
+    .vs_path  = "data/input/model_vs_2d_1150x648.bin",
+    .nx       = 1150,
+    .nz       = 648,
+    .nb       = 100,
+    .factor   = 0.015f,
+    .dx       = 5.0f,  
+    .dz       = 5.0f
   };
 
   waveletPar wpar = 
   {
-      .nt   = 5001,
-      .dt   = 4.4e-4f,
-      .fmax = 30
+    .nt   = 5001,
+    .dt   = 4.4e-4f,
+    .fmax = 30
   };
   
   snapshots snap = 
   {
-      .snap_bool = 1,
-      .snap_num  = 100
+    .snap_bool = 1,
+    .snap_num  = 100
   };
 
   geomPar geom = 
   {
-      .sIdx = 0.5 * (mpar.nx + 2 * mpar.nb),
-      .sIdz = 0.5 * (mpar.nz + 2 * mpar.nb)
+    .sIdx = 0.5 * (mpar.nx + 2 * mpar.nb),
+    .sIdz = 0.5 * (mpar.nz + 2 * mpar.nb)
   };
 
   fdFields fld = {0};
@@ -51,13 +52,6 @@ int main(void)
   mpar.rho = read_f32_bin_model(mpar.rho_path, mpar.nx, mpar.nz);
 
   set_boundary(&fld, &mpar);
-
-  // int nxx = mpar.nx + 2 * mpar.nb;
-  // int nzz = mpar.nz + 2 * mpar.nb;
-  //
-  // write_f32_bin_model("data/output/vp.bin", mpar.vp, nxx, nzz);
-  // write_f32_bin_model("data/output/vs.bin", mpar.vs, nxx, nzz);
-  // write_f32_bin_model("data/output/rho.bin", mpar.rho, nxx, nzz);
 
   fd(&fld, &mpar, &wpar, &geom, &snap);
 

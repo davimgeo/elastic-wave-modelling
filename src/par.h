@@ -6,19 +6,13 @@
 
 typedef struct 
 {
-  char *rho_path;
-  char *vs_path;
-  char *vp_path;
+  char *vp_path, *vs_path, *rho_path;
 
-  int   nx;
-  int   nz;
-  int   nb;
-  float dx;
-  float dz;
+  int   nx, nz, nb;
+  float factor;
+  float dx, dz;
 
-  float *rho;
-  float *vs;
-  float *vp;
+  float *vp, *vs, *rho;
 } modelPar;
 
 typedef struct 
@@ -29,17 +23,17 @@ typedef struct
 
 typedef struct 
 {
-  float *txx;
-  float *tzz;
-  float *txz;
-  float *vx;
-  float *vz;
+  float *txx, *tzz, *txz;
+  float *vx, *vz;
+  
+  /* result p wavefield calculated by
+   * normalizing txx and tzz */
+  float *calc_p;
 } fdFields;
 
 typedef struct 
 {
-  int sIdx;
-  int sIdz;
+  int sIdx, sIdz;
 } geomPar;
 
 typedef struct 
