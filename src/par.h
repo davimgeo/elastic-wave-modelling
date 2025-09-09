@@ -11,6 +11,7 @@ typedef struct
   int   nx, nz, nb;
   float factor;
   float dx, dz;
+  int nxx, nzz;
 
   float *vp, *vs, *rho;
 } modelPar;

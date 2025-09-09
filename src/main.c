@@ -18,11 +18,14 @@ int main(void)
     .vs_path  = "data/input/model_vs_2d_1150x648.bin",
     .nx       = 1150,
     .nz       = 648,
-    .nb       = 100,
+    .nb       = 30,
     .factor   = 0.015f,
     .dx       = 5.0f,  
     .dz       = 5.0f
   };
+
+  mpar.nxx = mpar.nx + 2 * mpar.nb;
+  mpar.nzz = mpar.nz + 2 * mpar.nb;
 
   waveletPar wpar = 
   {
@@ -34,7 +37,7 @@ int main(void)
   snapshots snap = 
   {
     .snap_bool = 1,
-    .snap_num  = 100
+    .snap_num  = 30
   };
 
   geomPar geom = 

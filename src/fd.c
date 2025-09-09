@@ -115,12 +115,11 @@ get_snapshots
 ( int       snap_ratio, 
   fdFields *fld, 
   int       time_step,
-  int       nxx, 
-  int       nzz )
+  modelPar *mdl )
 {
   if (!(time_step % snap_ratio))
   {
-    generate_p(fld, nxx, nzz);
+    generate_p(fld, mdl->nxx, mdl->nzz);
 
     const char *filenames[] = {
       "p_%dx%d_tid_%d.bin",
@@ -136,10 +135,10 @@ get_snapshots
     const int FIELDS_SIZE = 3;
     for (int i = 0; i < FIELDS_SIZE; i++) 
     {
-      snprintf(current_snap, sizeof(current_snap), filenames[i], nxx, nzz, time_step);
+      snprintf(current_snap, sizeof(current_snap), filenames[i], mdl->nxx, mdl->nzz, time_step);
       snprintf(full_path, sizeof(full_path), "%s%s", OUTPUT_PATH, current_snap);
 
-      write_f32_bin_model(full_path, fields[i], nxx, nzz);
+      write_f32_bin_model(full_path, fields[i], mdl->nxx, mdl->nzz);
     }
 
     printf("Generating snapshot num %d...\n", time_step);
@@ -149,21 +148,6 @@ get_snapshots
 static void 
 apply_boundary(fdFields *fld, float *damp1d, int nxx, int nzz)
 {
-  for (int i = 0; i < nzz; i++)
-  {
-      for (int j = 0; j < nxx; j++)
-      {
-        fld->vx[i + j * nzz] *= damp1d[i];
-        fld->vz[i + j * nzz] *= damp1d[i];
-        fld->txx[i + j * nzz] *= damp1d[i];
-        fld->tzz[i + j * nzz] *= damp1d[i];
-        fld->txz[i + j * nzz] *= damp1d[i];
-        
-        if (i < 1.0f) {
-          printf("%f", damp1d[i]);
-        }
-      }
-  }
 }
 
 static void 
@@ -172,8 +156,8 @@ fd_velocity_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, float* damp1d)
 	float dx = mdl->dx;
 	float dz = mdl->dz;
 	float dt = wav->dt;
-	int   nxx = mdl->nx + 2 * mdl->nb;
-	int   nzz = mdl->nz + 2 * mdl->nb;
+	int   nxx = mdl->nxx;
+	int   nzz = mdl->nzz;
 
 	float *rho = mdl->rho;
 
@@ -228,8 +212,8 @@ fd_velocity_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, float* damp1d)
 static void 
 fd_pressure_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, float *damp1d)
 {
-	int   nxx  = mdl->nx + 2 * mdl->nb;
-	int   nzz  = mdl->nz + 2 * mdl->nb;
+	int   nxx  = mdl->nxx;
+	int   nzz  = mdl->nzz;
 	float dx  = mdl->dx;
 	float dz  = mdl->dz;
 	float dt  = wav->dt;
@@ -320,9 +304,7 @@ inject_source
 
 float* get_damp1D(modelPar *mdl)
 {
-  int nzz = mdl->nz + 2 * mdl->nb;
-
-  float *damp1d = (float *)calloc(nzz, sizeof(float));
+  float *damp1d = (float *)calloc(mdl->nzz, sizeof(float));
 
   if (!damp1d) 
   {
@@ -330,7 +312,7 @@ float* get_damp1D(modelPar *mdl)
     return NULL;
   }
 
-  for (int i = 0; i < nzz; i++) 
+  for (int i = 0; i < mdl->nzz; i++) 
   {
     if ((i < mdl->nb)) 
     {
@@ -343,18 +325,17 @@ float* get_damp1D(modelPar *mdl)
     }
     else 
     {
-      int d = i - mdl->nz + 1;
+      int d = mdl->nb - 1 - (i - (mdl->nz + mdl->nb));
       damp1d[i] = exp(-(mdl->factor * d) * (mdl->factor * d));
     }
-    //printf("%f ", damp1d[i]);
   }
 
   return damp1d;
 }
 
-void static allocate_fields(fdFields *fld, int nxx, int nzz)
+void static allocate_fields(fdFields *fld, modelPar *mdl)
 {
-  size_t n = nxx * nzz;
+  size_t n = mdl->nxx * mdl->nzz;
 
   fld->txx = (float *)calloc(n, sizeof(float));
   fld->tzz = (float *)calloc(n, sizeof(float));
@@ -380,10 +361,7 @@ fd
   geomPar    *geom,
   snapshots  *snap )
 {
-  int nxx = mdl->nx + 2 * mdl->nb;
-  int nzz = mdl->nz + 2 * mdl->nb;
-
-  allocate_fields(fld, nxx, nzz);
+  allocate_fields(fld, mdl);
 
   float *damp1d = get_damp1D(mdl);
 
@@ -396,9 +374,9 @@ fd
     fd_velocity_8E2T(mdl, fld, wav, damp1d);
     fd_pressure_8E2T(mdl, fld, wav, damp1d);
 
-    apply_boundary(fld, damp1d, nxx, nzz);
+    //apply_boundary(fld, damp1d, nxx, nzz);
 
     if (snap->snap_bool)
-      get_snapshots(snap_ratio, fld, t, nxx, nzz);
+      get_snapshots(snap_ratio, fld, t, mdl);
   }
 }
