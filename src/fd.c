@@ -10,20 +10,14 @@
 
 #define PI 3.1415926f
 
-/* Finite-difference coefficients */
+/* finite-difference coefficients */
 #define FDM8E1 6.97545e-4f
 #define FDM8E2 9.57031e-3f
 #define FDM8E3 7.97526e-2f
 #define FDM8E4 1.19628906f
 
 #define OUTPUT_PATH "data/output/snapshots/"
-
-typedef struct damp1d
-{
-  float *damp1d_x;
-  float *damp1d_z;
-} damp1d;
-
+      
 float* ricker(int nt, float dt, float fmax) 
 {
   float* ricker = (float *)calloc((size_t)nt, sizeof(float));
@@ -42,14 +36,14 @@ float* ricker(int nt, float dt, float fmax)
   return ricker;
 }
 
-void set_boundary(fdFields *fld, modelPar *mld)
+void set_boundary(config_t *p)
 {
-  int nb  = mld->nb;
-  int nx  = mld->nx;
-  int nz  = mld->nz;
+  int nb  = p->nb;
+  int nx  = p->nx;
+  int nz  = p->nz;
 
-  int nxx = mld->nxx;   
-  int nzz = mld->nzz;  
+  int nxx = p->nxx;   
+  int nzz = p->nzz;  
 
   size_t n = nxx * nzz;
 
@@ -62,9 +56,9 @@ void set_boundary(fdFields *fld, modelPar *mld)
   {
     for (int i = 0; i < nz; i++) 
     {
-      vp_ext[(i + nb) + (j + nb) * nzz]  = mld->vp[i + j * nz];
-      vs_ext[(i + nb) + (j + nb) * nzz]  = mld->vs[i + j * nz];
-      rho_ext[(i + nb) + (j + nb) * nzz] = mld->rho[i + j * nz];
+      vp_ext[(i + nb) + (j + nb) * nzz]  = p->vp[i + j * nz];
+      vs_ext[(i + nb) + (j + nb) * nzz]  = p->vs[i + j * nz];
+      rho_ext[(i + nb) + (j + nb) * nzz] = p->rho[i + j * nz];
     }
   }
 
@@ -99,33 +93,31 @@ void set_boundary(fdFields *fld, modelPar *mld)
   }
 
   /* swap pointers to new arr */
-  free(mld->vp); mld->vp = vp_ext;
-  free(mld->vs); mld->vs = vs_ext;
-  free(mld->rho); mld->rho = rho_ext;
+  free(p->vp); p->vp = vp_ext;
+  free(p->vs); p->vs = vs_ext;
+  free(p->rho); p->rho = rho_ext;
 }
 
-void static inline generate_p(fdFields *fld, int nxx, int nzz)
+void generate_p(config_t *p)
 {
+  int nxx = p->nxx;
+  int nzz = p->nzz;
+
 	for (size_t i = 0; i < nzz; i++) 
 	{
     for (size_t j = 0; j < nxx; j++) 
     {
-      fld->calc_p[i + j * nzz] = 
-        0.5f * (fld->txx[i + j * nzz] + fld->tzz[i + j * nzz]);
+      p->calc_p[i + j * nzz] = 
+        0.5f * (p->txx[i + j * nzz] + p->tzz[i + j * nzz]);
     }
 	}
 }
 
-static void 
-get_snapshots
-( int       snap_ratio, 
-  fdFields *fld, 
-  int       time_step,
-  modelPar *mdl )
+void get_snapshots(config_t *p, int time_step)
 {
-  if (!(time_step % snap_ratio))
+  if (!(time_step % p->snap_ratio))
   {
-    generate_p(fld, mdl->nxx, mdl->nzz);
+    generate_p(p);
 
     const char *filenames[] = {
       "p_%dx%d_tid_%d.bin",
@@ -133,40 +125,45 @@ get_snapshots
       "vz_%dx%d_tid_%d.bin"
     };
 
-    float *fields[] = { fld->calc_p, fld->vx, fld->vz };
+    float *fields[] = { p->calc_p, p->vx, p->vz };
 
-    char current_snap[256];
-    char full_path[512];
+    char current_snap[256], full_path[512];
 
-    const int FIELDS_SIZE = 3;
+    #define FIELDS_SIZE 3
     for (int i = 0; i < FIELDS_SIZE; i++) 
     {
-      snprintf(current_snap, sizeof(current_snap), filenames[i], mdl->nxx, mdl->nzz, time_step);
+      snprintf(current_snap, sizeof(current_snap), filenames[i], p->nxx, p->nzz, time_step);
       snprintf(full_path, sizeof(full_path), "%s%s", OUTPUT_PATH, current_snap);
 
-      write_f32_bin_model(full_path, fields[i], mdl->nxx, mdl->nzz);
+      write_f32_bin_model(full_path, fields[i], p->nxx, p->nzz);
     }
 
     printf("Generating snapshot num %d...\n", time_step);
   }
 }
 
-static void 
-apply_boundary(float *field, damp1d *damp1d, int i, int j, int nzz)
+void apply_boundary(config_t *p, damping_t *damp)
 {
-  field[i + j * nzz] *= (damp1d->damp1d_x[j] * damp1d->damp1d_z[i]); 
+  int nzz = p->nzz;
+  int nxx = p->nxx;
+
+	#pragma omp parallel for schedule(static)
+  for (size_t index = 0; index < nxx * nzz; index++) 
+  {
+    int i = index % nzz;
+    int j = index / nzz;
+
+    p->calc_p[i + j * nzz] *= (damp->x[j] * damp->z[i]); 
+    p->txz[i + j * nzz]    *= (damp->x[j] * damp->z[i]); 
+    p->vx[i + j * nzz]     *= (damp->x[j] * damp->z[i]); 
+    p->vz[i + j * nzz]     *= (damp->x[j] * damp->z[i]); 
+  }
 }
 
-static void 
-fd_velocity_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, damp1d *damp1d)
+void fd_velocity_8E2T(config_t *p)
 {
-	float dx = mdl->dx;
-	float dz = mdl->dz;
-	float dt = wav->dt;
-	int   nxx = mdl->nxx;
-	int   nzz = mdl->nzz;
-
-	float *rho = mdl->rho;
+	int nxx = p->nxx;
+	int nzz = p->nzz;
 
 	#pragma omp parallel for schedule(static)
 	for (int index = 0; index < nxx * nzz; index++)
@@ -177,61 +174,47 @@ fd_velocity_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, damp1d *damp1d)
 		if ((i >= 4) && (i < nzz - 4) && (j > 4) && (j < nxx - 4))
 		{
 			float dtxx_dx =
-				(FDM8E1 * (fld->txx[i + (j - 4) * nzz] - fld->txx[i + (j + 3) * nzz]) +
-				 FDM8E2 * (fld->txx[i + (j + 2) * nzz] - fld->txx[i + (j - 3) * nzz]) +
-				 FDM8E3 * (fld->txx[i + (j - 2) * nzz] - fld->txx[i + (j + 1) * nzz]) +
-				 FDM8E4 * (fld->txx[i + j * nzz] - fld->txx[i + (j - 1) * nzz])) / dx;
+				(FDM8E1 * (p->txx[i + (j - 4) * nzz] - p->txx[i + (j + 3) * nzz]) +
+				 FDM8E2 * (p->txx[i + (j + 2) * nzz] - p->txx[i + (j - 3) * nzz]) +
+				 FDM8E3 * (p->txx[i + (j - 2) * nzz] - p->txx[i + (j + 1) * nzz]) +
+				 FDM8E4 * (p->txx[i + j * nzz] - p->txx[i + (j - 1) * nzz])) / p->dx;
 
 			float dtxz_dz =
-				(FDM8E1 * (fld->txz[(i - 3) + j * nzz] - fld->txz[(i + 4) + j * nzz]) +
-				 FDM8E2 * (fld->txz[(i + 3) + j * nzz] - fld->txz[(i - 2) + j * nzz]) +
-				 FDM8E3 * (fld->txz[(i - 1) + j * nzz] - fld->txz[(i + 2) + j * nzz]) +
-				 FDM8E4 * (fld->txz[(i + 1) + j * nzz] - fld->txz[i + j * nzz])) / dz;
+				(FDM8E1 * (p->txz[(i - 3) + j * nzz] - p->txz[(i + 4) + j * nzz]) +
+				 FDM8E2 * (p->txz[(i + 3) + j * nzz] - p->txz[(i - 2) + j * nzz]) +
+				 FDM8E3 * (p->txz[(i - 1) + j * nzz] - p->txz[(i + 2) + j * nzz]) +
+				 FDM8E4 * (p->txz[(i + 1) + j * nzz] - p->txz[i + j * nzz])) / p->dz;
 
-			float inv_rho_1 =
-				1.0f / (0.5f * (rho[i + j * nzz] + rho[i + (j + 1) * nzz]));
+			float rho_inv = 1.0f / (0.5f * (p->rho[i + j * nzz] + p->rho[i + (j + 1) * nzz]));
 
-			fld->vx[i + j * nzz] += dt * inv_rho_1 * (dtxx_dx + dtxz_dz);
-
-      apply_boundary(fld->vx, damp1d, i, j, nzz);
+			p->vx[i + j * nzz] += p->dt * rho_inv * (dtxx_dx + dtxz_dz);
 		}
 
 		if ((i > 4) && (i < nzz - 4) && (j >= 4) && (j < nxx - 4))
 		{
 			float dtxz_dx =
-				(FDM8E1 * (fld->txz[i + (j - 3) * nzz] - fld->txz[i + (j + 4) * nzz]) +
-				 FDM8E2 * (fld->txz[i + (j + 3) * nzz] - fld->txz[i + (j - 2) * nzz]) +
-				 FDM8E3 * (fld->txz[i + (j - 1) * nzz] - fld->txz[i + (j + 2) * nzz]) +
-				 FDM8E4 * (fld->txz[i + (j + 1) * nzz] - fld->txz[i + j * nzz])) / dx;
+				(FDM8E1 * (p->txz[i + (j - 3) * nzz] - p->txz[i + (j + 4) * nzz]) +
+				 FDM8E2 * (p->txz[i + (j + 3) * nzz] - p->txz[i + (j - 2) * nzz]) +
+				 FDM8E3 * (p->txz[i + (j - 1) * nzz] - p->txz[i + (j + 2) * nzz]) +
+				 FDM8E4 * (p->txz[i + (j + 1) * nzz] - p->txz[i + j * nzz])) / p->dx;
 
 			float dtzz_dz =
-				(FDM8E1 * (fld->tzz[(i - 4) + j * nzz] - fld->tzz[(i + 3) + j * nzz]) +
-				 FDM8E2 * (fld->tzz[(i + 2) + j * nzz] - fld->tzz[(i - 3) + j * nzz]) +
-				 FDM8E3 * (fld->tzz[(i - 2) + j * nzz] - fld->tzz[(i + 1) + j * nzz]) +
-				 FDM8E4 * (fld->tzz[i + j * nzz] - fld->tzz[(i - 1) + j * nzz])) / dz;
+				(FDM8E1 * (p->tzz[(i - 4) + j * nzz] - p->tzz[(i + 3) + j * nzz]) +
+				 FDM8E2 * (p->tzz[(i + 2) + j * nzz] - p->tzz[(i - 3) + j * nzz]) +
+				 FDM8E3 * (p->tzz[(i - 2) + j * nzz] - p->tzz[(i + 1) + j * nzz]) +
+				 FDM8E4 * (p->tzz[i + j * nzz] - p->tzz[(i - 1) + j * nzz])) / p->dz;
 
-			float inv_rho_2 =
-				1.0f / (0.5f * (rho[i + j * nzz] + rho[(i + 1) + j * nzz]));
+			float rho_inv = 1.0f / (0.5f * (p->rho[i + j * nzz] + p->rho[(i + 1) + j * nzz]));
 
-			fld->vz[i + j * nzz] += dt * inv_rho_2 * (dtxz_dx + dtzz_dz);
-
-      apply_boundary(fld->vz, damp1d, i, j, nzz);
+			p->vz[i + j * nzz] += p->dt * rho_inv * (dtxz_dx + dtzz_dz);
 		}
 	}
 }
 
-static void 
-fd_pressure_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, damp1d *damp1d)
+void fd_pressure_8E2T(config_t *p)
 {
-	int   nxx  = mdl->nxx;
-	int   nzz  = mdl->nzz;
-	float dx  = mdl->dx;
-	float dz  = mdl->dz;
-	float dt  = wav->dt;
-
-	float *vp  = mdl->vp;
-	float *vs  = mdl->vs;
-	float *rho = mdl->rho;
+	int   nxx  = p->nxx;
+	int   nzz  = p->nzz;
 
 	#pragma omp parallel for schedule(static)
 	for (int index = 0; index < nxx * nzz; index++)
@@ -242,190 +225,165 @@ fd_pressure_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, damp1d *damp1d)
 		if ((i >= 4) && (i < nzz - 4) && (j >= 4) && (j < nxx - 4))
 		{
 			float dvx_dx =
-				(FDM8E1 * (fld->vx[i + (j - 3) * nzz] - fld->vx[i + (j + 4) * nzz]) +
-				 FDM8E2 * (fld->vx[i + (j + 3) * nzz] - fld->vx[i + (j - 2) * nzz]) +
-				 FDM8E3 * (fld->vx[i + (j - 1) * nzz] - fld->vx[i + (j + 2) * nzz]) +
-				 FDM8E4 * (fld->vx[i + (j + 1) * nzz] - fld->vx[i + j * nzz])) / dx;
+				(FDM8E1 * (p->vx[i + (j - 3) * nzz] - p->vx[i + (j + 4) * nzz]) +
+				 FDM8E2 * (p->vx[i + (j + 3) * nzz] - p->vx[i + (j - 2) * nzz]) +
+				 FDM8E3 * (p->vx[i + (j - 1) * nzz] - p->vx[i + (j + 2) * nzz]) +
+				 FDM8E4 * (p->vx[i + (j + 1) * nzz] - p->vx[i + j * nzz])) / p->dx;
 
 			float dvz_dz =
-				(FDM8E1 * (fld->vz[(i - 3) + j * nzz] - fld->vz[(i + 4) + j * nzz]) +
-				 FDM8E2 * (fld->vz[(i + 3) + j * nzz] - fld->vz[(i - 2) + j * nzz]) +
-				 FDM8E3 * (fld->vz[(i - 1) + j * nzz] - fld->vz[(i + 2) + j * nzz]) +
-				 FDM8E4 * (fld->vz[(i + 1) + j * nzz] - fld->vz[i + j * nzz])) / dz;
+				(FDM8E1 * (p->vz[(i - 3) + j * nzz] - p->vz[(i + 4) + j * nzz]) +
+				 FDM8E2 * (p->vz[(i + 3) + j * nzz] - p->vz[(i - 2) + j * nzz]) +
+				 FDM8E3 * (p->vz[(i - 1) + j * nzz] - p->vz[(i + 2) + j * nzz]) +
+				 FDM8E4 * (p->vz[(i + 1) + j * nzz] - p->vz[i + j * nzz])) / p->dz;
 
-			float vp2     = vp[i + j * nzz] * vp[i + j * nzz];
-			float vs2     = vs[i + j * nzz] * vs[i + j * nzz];
+			float vp2 = p->vp[i + j * nzz] * p->vp[i + j * nzz];
+			float vs2 = p->vs[i + j * nzz] * p->vs[i + j * nzz];
 
-			float lambda  = rho[i + j * nzz] * (vp2 - 2.0f * vs2);
-			float mi      = rho[i + j * nzz] * vs2;
+			float lamb = p->rho[i + j * nzz] * (vp2 - 2.0f * vs2);
+			float mi   = p->rho[i + j * nzz] * vs2;
 
-			fld->txx[i + j * nzz] += dt * ((lambda + 2.0f * mi) * dvx_dx +
-								   lambda * dvz_dz);
-			fld->tzz[i + j * nzz] += dt * ((lambda + 2.0f * mi) * dvz_dz +
-								   lambda * dvx_dx);
-
-      apply_boundary(fld->txx, damp1d, i, j, nzz);
-      apply_boundary(fld->tzz, damp1d, i, j, nzz);
+			p->txx[i + j * nzz] += p->dt * ((lamb + 2.0f * mi) * dvx_dx + lamb * dvz_dz);
+			p->tzz[i + j * nzz] += p->dt * ((lamb + 2.0f * mi) * dvz_dz + lamb * dvx_dx);
 		}
 
 		if ((i >= 4) && (i <= nzz - 4) && (j >= 4) && (j <= nxx - 4))
 		{
 			float dvx_dz =
-				(FDM8E1 * (fld->vx[(i - 4) + j * nzz] - fld->vx[(i + 3) + j * nzz]) +
-				 FDM8E2 * (fld->vx[(i + 2) + j * nzz] - fld->vx[(i - 3) + j * nzz]) +
-				 FDM8E3 * (fld->vx[(i - 2) + j * nzz] - fld->vx[(i + 1) + j * nzz]) +
-				 FDM8E4 * (fld->vx[i + j * nzz] - fld->vx[(i - 1) + j * nzz])) / dz;
+				(FDM8E1 * (p->vx[(i - 4) + j * nzz] - p->vx[(i + 3) + j * nzz]) +
+				 FDM8E2 * (p->vx[(i + 2) + j * nzz] - p->vx[(i - 3) + j * nzz]) +
+				 FDM8E3 * (p->vx[(i - 2) + j * nzz] - p->vx[(i + 1) + j * nzz]) +
+				 FDM8E4 * (p->vx[i + j * nzz] - p->vx[(i - 1) + j * nzz])) / p->dz;
 
 			float dvz_dx =
-				(FDM8E1 * (fld->vz[i + (j - 4) * nzz] - fld->vz[i + (j + 3) * nzz]) +
-				 FDM8E2 * (fld->vz[i + (j + 2) * nzz] - fld->vz[i + (j - 3) * nzz]) +
-				 FDM8E3 * (fld->vz[i + (j - 2) * nzz] - fld->vz[i + (j + 1) * nzz]) +
-				 FDM8E4 * (fld->vz[i + j * nzz] - fld->vz[i + (j - 1) * nzz])) / dx;
+				(FDM8E1 * (p->vz[i + (j - 4) * nzz] - p->vz[i + (j + 3) * nzz]) +
+				 FDM8E2 * (p->vz[i + (j + 2) * nzz] - p->vz[i + (j - 3) * nzz]) +
+				 FDM8E3 * (p->vz[i + (j - 2) * nzz] - p->vz[i + (j + 1) * nzz]) +
+				 FDM8E4 * (p->vz[i + j * nzz] - p->vz[i + (j - 1) * nzz])) / p->dx;
 
-			float vs2       = vs[i       +       j * nzz] * vs[      i + j * nzz];
-			float vs2_xp    = vs[(i + 1) +       j * nzz] * vs[(i + 1) + j * nzz];
-			float vs2_zp    = vs[i       + (j + 1) * nzz] * vs[i + (j + 1) * nzz];
-			float vs2_xp_zp = 
-        vs[(i + 1) + (j + 1) * nzz] * 
-        vs[(i + 1) + (j + 1) * nzz];
+			float vs2       = p->vs[i + j * nzz] * p->vs[i + j * nzz];
+			float vs2_xp    = p->vs[(i + 1) + j * nzz] * p->vs[(i + 1) + j * nzz];
+			float vs2_zp    = p->vs[i + (j + 1) * nzz] * p->vs[i + (j + 1) * nzz];
+			float vs2_xp_zp = p->vs[(i + 1) + (j + 1) * nzz] * p->vs[(i + 1) + (j + 1) * nzz];
 
-			float mi1 = rho[      i + j       * nzz] * vs2;
-			float mi2 = rho[(i + 1) + j       * nzz] * vs2_xp;
-			float mi3 = rho[i       + (j + 1) * nzz] * vs2_zp;
-			float mi4 = rho[(i + 1) + (j + 1) * nzz] * vs2_xp_zp;
+			float mi1 = p->rho[i + j * nzz] * vs2;
+			float mi2 = p->rho[(i + 1) + j * nzz] * vs2_xp;
+			float mi3 = p->rho[i + (j + 1) * nzz] * vs2_zp;
+			float mi4 = p->rho[(i + 1) + (j + 1) * nzz] * vs2_xp_zp;
 
-			float mi_avg = 4.0f / ((1.0f / mi1) + (1.0f / mi2) +
-								   (1.0f / mi3) + (1.0f / mi4));
+			float mi_avg = 4.0f / ((1.0f / mi1) + (1.0f / mi2) + (1.0f / mi3) + (1.0f / mi4));
 
-			fld->txz[i + j * nzz] += dt * mi_avg * (dvx_dz + dvz_dx);
-
-      apply_boundary(fld->txz, damp1d, i, j, nzz);
+			p->txz[i + j * nzz] += p->dt * mi_avg * (dvx_dz + dvz_dx);
 		}
 	}
 }
 
-void static 
-inject_source
-( fdFields   *fld,
-  modelPar   *mdl, 
-  geomPar    *geom, 
-  waveletPar *wav, 
-  size_t      t )
+void inject_source(config_t *p, size_t t)
 {
-  int s_idx = (geom->sIdz + mdl->nb) + (geom->sIdx + mdl->nb) * mdl->nzz;
-  //int s_idx = geom->sIdz + geom->sIdx * mdl->nz;
+  int s_idx = (p->sIdz + p->nb) + (p->sIdx + p->nb) * p->nzz;
 
-  fld->txx[s_idx] += wav->wavelet[t] / (mdl->dx * mdl->dz);
-  fld->tzz[s_idx] += wav->wavelet[t] / (mdl->dx * mdl->dz);
+  p->txx[s_idx] += p->wavelet[t] / (p->dx * p->dz);
+  p->tzz[s_idx] += p->wavelet[t] / (p->dx * p->dz);
 }
 
-float* get_damp1D_x(modelPar *mdl)
+damping_t get_damp(config_t *p)
 {
-  float *damp1d_x = (float *)calloc(mdl->nxx, sizeof(float));
+  damping_t damp;
 
-  if (!damp1d_x) 
+  damp.x = (float *)calloc(p->nxx, sizeof(float));
+  damp.z = (float *)calloc(p->nzz, sizeof(float));
+
+  if (!damp.x || !damp.z) 
   {
-    perror("Could not allocate damp1d");
-    return NULL;
+    perror("Could not allocate damping");
+    exit(EXIT_FAILURE);
   }
 
-  for (int j = 0; j < mdl->nxx; j++) 
+  for (int i = 0; i < p->nzz; i++) 
   {
-      if (j < mdl->nb) 
-      {
-        int d = mdl->nb - j;
-        damp1d_x[j] = exp(-(mdl->factor * d) * (mdl->factor * d));
-      }
-      else if (j >= mdl->nx + mdl->nb) 
-      {
-        int d = j - (mdl->nx + mdl->nb) + 1;
-        damp1d_x[j] = exp(-(mdl->factor * d) * (mdl->factor * d));
-      }
-      else 
-      {
-        damp1d_x[j] = 1.0f;
-      }
-  }
-
-  return damp1d_x;
-}
-
-float* get_damp1D_z(modelPar *mdl)
-{
-  float *damp1d_z = (float *)calloc(mdl->nzz, sizeof(float));
-
-  if (!damp1d_z) 
-  {
-    perror("Could not allocate damp1d");
-    return NULL;
-  }
-
-  for (int i = 0; i < mdl->nzz; i++) 
-  {
-    if ((i < mdl->nb)) 
+    if ((i >= p->nb) && (i < p->nz + p->nb)) 
     {
-      int d = mdl->nb - i;
-      damp1d_z[i] = exp(-(mdl->factor * d) * (mdl->factor * d));
+      damp.z[i] = 1.0f;
     }
-    else if (i >= mdl->nz + mdl->nb) 
+    else if (i < p->nb) 
     {
-      int d = i - (mdl->nz + mdl->nb) + 1;
-      damp1d_z[i] = exp(-(mdl->factor * d) * (mdl->factor * d));
+      int d = p->nb - i;
+      damp.z[i] = exp(-(p->factor * d) * (p->factor * d));
     }
     else 
     {
-      damp1d_z[i] = 1.0f;
+      int d = i - (p->nb + p->nz - 1);
+      damp.z[i] = exp(-(p->factor * d) * (p->factor * d));
     }
   }
 
-  return damp1d_z;
+  for (int j = 0; j < p->nxx; j++) 
+  {
+    if ((j >= p->nb) && (j < p->nx + p->nb)) 
+    {
+      damp.x[j] = 1.0f;
+    }
+    else if (j < p->nb) 
+    {
+      int d = p->nb - j;
+      damp.x[j] = exp(-(p->factor * d) * (p->factor * d));
+    }
+    else 
+    {
+      int d = j - (p->nb + p->nx - 1);
+      damp.x[j] = exp(-(p->factor * d) * (p->factor * d));
+    }
+  }
+
+  return damp;
 }
 
-void static allocate_fields(fdFields *fld, modelPar *mdl)
+void allocate_fields(config_t *p)
 {
-  size_t n = mdl->nxx * mdl->nzz;
+  size_t n = p->nxx * p->nzz;
 
-  fld->txx = (float *)calloc(n, sizeof(float));
-  fld->tzz = (float *)calloc(n, sizeof(float));
-  fld->txz = (float *)calloc(n, sizeof(float));
-  fld->vx  = (float *)calloc(n, sizeof(float));
-  fld->vz  = (float *)calloc(n, sizeof(float));
+  p->txx = (float *)calloc(n, sizeof(float));
+  p->tzz = (float *)calloc(n, sizeof(float));
+  p->txz = (float *)calloc(n, sizeof(float));
+  p->vx  = (float *)calloc(n, sizeof(float));
+  p->vz  = (float *)calloc(n, sizeof(float));
 
-  fld->calc_p = (float *)calloc(n, sizeof(float));
+  p->calc_p = (float *)calloc(n, sizeof(float));
 
-  if (!fld->txx || !fld->tzz || !fld->txz || 
-      !fld->vx || !fld->vz || !fld->calc_p)
+  if (!p->txx || !p->tzz || !p->txz || 
+      !p->vx || !p->vz || !p->calc_p)
   {
     perror("Could not allocate fields\n");
     return;
   }
 }
 
-void 
-fd
-( fdFields   *fld, 
-  modelPar   *mdl,
-  waveletPar *wav,
-  geomPar    *geom,
-  snapshots  *snap )
+void register_seismogram() {}
+
+void fd(config_t *p)
 {
-  allocate_fields(fld, mdl);
+  allocate_fields(p);
 
-  damp1d damp;
+  set_boundary(p);
 
-  damp.damp1d_x = get_damp1D_x(mdl);
-  damp.damp1d_z = get_damp1D_z(mdl);
+  damping_t damp = get_damp(p);  
 
-  int snap_ratio = wav->nt / snap->snap_num;
-
-  for (size_t t = 0; t < wav->nt; t++)
+  for (size_t t = 0; t < p->nt; t++)
   {
-    inject_source(fld, mdl, geom, wav, t);
+    //register_seismogram();
 
-    fd_velocity_8E2T(mdl, fld, wav, &damp);
-    fd_pressure_8E2T(mdl, fld, wav, &damp);
+    inject_source(p, t);
 
-    if (snap->snap_bool)
-      get_snapshots(snap_ratio, fld, t, mdl);
+    fd_velocity_8E2T(p);
+    fd_pressure_8E2T(p);
+
+    apply_boundary(p, &damp);
+
+    if (p->snap_bool)
+      get_snapshots(p, t);
   }
+
+  free(p->txx); free(p->tzz);
+  free(p->txz); free(p->vx);
+  free(p->calc_p); 
+  free(damp.x); free(damp.z);
 }

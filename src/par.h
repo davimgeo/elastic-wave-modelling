@@ -4,46 +4,40 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-typedef struct 
-{
-  char *vp_path, *vs_path, *rho_path;
+typedef struct {
+    /* model parameters */
+    char  *vp_path, *vs_path, *rho_path;
 
-  int   nx, nz, nb;
-  float factor;
-  float dx, dz;
-  int nxx, nzz;
+    int    nx, nz, nb;
+    float  dx, dz;
 
-  float *vp, *vs, *rho;
-} modelPar;
+    float  factor;
+    int    nxx, nzz;
 
-typedef struct 
-{
-  bool snap_bool;
-  int  snap_num;
-} snapshots;
+    float *vp, *vs, *rho;
 
-typedef struct 
-{
-  float *txx, *tzz, *txz;
-  float *vx, *vz;
-  
-  /* result p wavefield calculated by
-   * normalizing txx and tzz */
-  float *calc_p;
-} fdFields;
+    /* snapshot parameters */
+    bool snap_bool;
+    int  snap_num;
+    int  snap_ratio;
 
-typedef struct 
-{
-  int sIdx, sIdz;
-} geomPar;
+    /* fields */
+    float *txx, *tzz, *txz;
+    float *vx, *vz;
 
-typedef struct 
-{
-  int    nt;
-  float  dt;
-  float  fmax;
-  float *wavelet;
-} waveletPar;
+    // resulted p measured by 0.5*(txx+tzz)
+    float *calc_p;
+
+    /* geometry parameters */
+    int sIdx, sIdz;
+
+    /* wavelet parameters */
+    int    nt;
+    float  dt;
+    float  fmax;
+    float *wavelet;
+
+} config_t;
 
 #endif /* PAR_H */
 

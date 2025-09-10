@@ -1,4 +1,5 @@
 #include <time.h>
+#include <stdio.h>
 
 #include "par.h"
 #include "bin.h"
@@ -6,58 +7,45 @@
 
 #define OUTPUT_PATH "data/output/"
 
+struct timespec start, end;
+
 int main(void)
 {
-  struct timespec start, end;
   clock_gettime(CLOCK_MONOTONIC, &start);
 
-  modelPar mpar = 
-  {
-    .rho_path = "data/input/model_rho_2d_1150x648.bin",
-    .vp_path  = "data/input/model_vp_2d_1150x648.bin",
-    .vs_path  = "data/input/model_vs_2d_1150x648.bin",
-    .nx       = 1150,
-    .nz       = 648,
-    .nb       = 100,
-    .factor   = 0.015f,
-    .dx       = 5.0f,  
-    .dz       = 5.0f
-  };
+  config_t p;
 
-  mpar.nxx = mpar.nx + 2 * mpar.nb;
-  mpar.nzz = mpar.nz + 2 * mpar.nb;
+  p.rho_path = "data/input/model_rho_2d_1150x648.bin";
+  p.vp_path  = "data/input/model_vp_2d_1150x648.bin";
+  p.vs_path  = "data/input/model_vs_2d_1150x648.bin";
 
-  waveletPar wpar = 
-  {
-    .nt   = 5001,
-    .dt   = 4.4e-4f,
-    .fmax = 30
-  };
-  
-  snapshots snap = 
-  {
-    .snap_bool = 1,
-    .snap_num  = 100
-  };
+  p.nx     = 1150;
+  p.nz     = 648;
+  p.nb     = 100;
+  p.factor = 0.015f;
+  p.dx     = 5.0f;
+  p.dz     = 5.0f;
 
-  geomPar geom = 
-  {
-    .sIdx = 0.5 * (mpar.nxx),
-    .sIdz = 0.5 * (mpar.nzz)
-  };
+  p.nxx = p.nx + 2 * p.nb;
+  p.nzz = p.nz + 2 * p.nb;
 
-  fdFields fld = {0};
+  p.nt      = 5001;
+  p.dt      = 4.4e-4f;
+  p.fmax    = 30.0f;
+  p.wavelet = ricker(p.nt, p.dt, p.fmax);
 
-  wpar.wavelet = ricker(wpar.nt, wpar.dt, wpar.fmax);
+  p.snap_bool  = true;
+  p.snap_num   = 100;
+  p.snap_ratio = p.nt / p.snap_num;
 
-  mpar.vp  = read_f32_bin_model(mpar.vp_path, mpar.nx, mpar.nz);
-  mpar.vs  = read_f32_bin_model(mpar.vs_path, mpar.nx, mpar.nz);
-  mpar.rho = read_f32_bin_model(mpar.rho_path, mpar.nx, mpar.nz);
+  p.sIdx = 0.5 * (p.nxx - p.nb);
+  p.sIdz = 0;
 
-  set_boundary(&fld, &mpar);
-  write_f32_bin_model("data/output/vp.bin", mpar.vp, mpar.nxx, mpar.nzz);
+  p.vp  = read_f32_bin_model(p.vp_path,  p.nx, p.nz);
+  p.vs  = read_f32_bin_model(p.vs_path,  p.nx, p.nz);
+  p.rho = read_f32_bin_model(p.rho_path, p.nx, p.nz);
 
-  fd(&fld, &mpar, &wpar, &geom, &snap);
+  fd(&p);
 
   clock_gettime(CLOCK_MONOTONIC, &end);
 
@@ -65,5 +53,7 @@ int main(void)
                   + (end.tv_nsec - start.tv_nsec) / 1e9;
 
   printf("Elapsed: %.4f seconds\n", elapsed);
+
+  return 0;
 }
 

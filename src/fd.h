@@ -3,16 +3,14 @@
 
 #include "par.h"
 
+typedef struct 
+{
+  float *x; 
+  float *z;
+} damping_t;
+
 float* ricker(int nt, float dt, float fmax);
 
-void set_boundary(fdFields *fld, modelPar *mld);
-
-void 
-fd
-( fdFields   *fld, 
-  modelPar   *mdl,
-  waveletPar *wav,
-  geomPar    *geom,
-  snapshots  *snap );
+void fd(config_t *p);
 
 #endif // FD_H
