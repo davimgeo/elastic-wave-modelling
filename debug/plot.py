@@ -42,7 +42,7 @@ def update(i):
 
 PATH = "data/output/snapshots/"
 
-nb = 30
+nb = 100
 nx, nz = 1150, 648
 nxx, nzz = nx + 2 * nb, nz + 2 * nb
 
@@ -51,5 +51,5 @@ pSnapshots, vxSnapshots, vzSnapshots = getSnapshotNames(PATH)
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
 
 ani = FuncAnimation(fig, update, frames=len(vxSnapshots), blit=False, interval=100)
-#ani.save("animation.mp4", writer="ffmpeg", fps=20)
+ani.save("animation.mp4", writer="ffmpeg", fps=20)
 plt.show()

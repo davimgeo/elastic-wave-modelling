@@ -18,6 +18,12 @@
 
 #define OUTPUT_PATH "data/output/snapshots/"
 
+typedef struct damp1d
+{
+  float *damp1d_x;
+  float *damp1d_z;
+} damp1d;
+
 float* ricker(int nt, float dt, float fmax) 
 {
   float* ricker = (float *)calloc((size_t)nt, sizeof(float));
@@ -42,8 +48,8 @@ void set_boundary(fdFields *fld, modelPar *mld)
   int nx  = mld->nx;
   int nz  = mld->nz;
 
-  int nxx = nx + 2 * nb;   
-  int nzz = nz + 2 * nb;  
+  int nxx = mld->nxx;   
+  int nzz = mld->nzz;  
 
   size_t n = nxx * nzz;
 
@@ -146,12 +152,13 @@ get_snapshots
 }
 
 static void 
-apply_boundary(fdFields *fld, float *damp1d, int nxx, int nzz)
+apply_boundary(float *field, damp1d *damp1d, int i, int j, int nzz)
 {
+  field[i + j * nzz] *= (damp1d->damp1d_x[j] * damp1d->damp1d_z[i]); 
 }
 
 static void 
-fd_velocity_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, float* damp1d)
+fd_velocity_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, damp1d *damp1d)
 {
 	float dx = mdl->dx;
 	float dz = mdl->dz;
@@ -185,6 +192,8 @@ fd_velocity_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, float* damp1d)
 				1.0f / (0.5f * (rho[i + j * nzz] + rho[i + (j + 1) * nzz]));
 
 			fld->vx[i + j * nzz] += dt * inv_rho_1 * (dtxx_dx + dtxz_dz);
+
+      apply_boundary(fld->vx, damp1d, i, j, nzz);
 		}
 
 		if ((i > 4) && (i < nzz - 4) && (j >= 4) && (j < nxx - 4))
@@ -205,12 +214,14 @@ fd_velocity_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, float* damp1d)
 				1.0f / (0.5f * (rho[i + j * nzz] + rho[(i + 1) + j * nzz]));
 
 			fld->vz[i + j * nzz] += dt * inv_rho_2 * (dtxz_dx + dtzz_dz);
+
+      apply_boundary(fld->vz, damp1d, i, j, nzz);
 		}
 	}
 }
 
 static void 
-fd_pressure_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, float *damp1d)
+fd_pressure_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, damp1d *damp1d)
 {
 	int   nxx  = mdl->nxx;
 	int   nzz  = mdl->nzz;
@@ -252,6 +263,9 @@ fd_pressure_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, float *damp1d)
 								   lambda * dvz_dz);
 			fld->tzz[i + j * nzz] += dt * ((lambda + 2.0f * mi) * dvz_dz +
 								   lambda * dvx_dx);
+
+      apply_boundary(fld->txx, damp1d, i, j, nzz);
+      apply_boundary(fld->tzz, damp1d, i, j, nzz);
 		}
 
 		if ((i >= 4) && (i <= nzz - 4) && (j >= 4) && (j <= nxx - 4))
@@ -275,8 +289,8 @@ fd_pressure_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, float *damp1d)
         vs[(i + 1) + (j + 1) * nzz] * 
         vs[(i + 1) + (j + 1) * nzz];
 
-			float mi1 = rho[      i + j * nzz]       * vs2;
-			float mi2 = rho[(i + 1) + j * nzz]       * vs2_xp;
+			float mi1 = rho[      i + j       * nzz] * vs2;
+			float mi2 = rho[(i + 1) + j       * nzz] * vs2_xp;
 			float mi3 = rho[i       + (j + 1) * nzz] * vs2_zp;
 			float mi4 = rho[(i + 1) + (j + 1) * nzz] * vs2_xp_zp;
 
@@ -284,6 +298,8 @@ fd_pressure_8E2T(modelPar *mdl, fdFields *fld, waveletPar *wav, float *damp1d)
 								   (1.0f / mi3) + (1.0f / mi4));
 
 			fld->txz[i + j * nzz] += dt * mi_avg * (dvx_dz + dvz_dx);
+
+      apply_boundary(fld->txz, damp1d, i, j, nzz);
 		}
 	}
 }
@@ -296,17 +312,49 @@ inject_source
   waveletPar *wav, 
   size_t      t )
 {
-  int s_idx = geom->sIdz + geom->sIdx * mdl->nz;
+  int s_idx = (geom->sIdz + mdl->nb) + (geom->sIdx + mdl->nb) * mdl->nzz;
+  //int s_idx = geom->sIdz + geom->sIdx * mdl->nz;
 
   fld->txx[s_idx] += wav->wavelet[t] / (mdl->dx * mdl->dz);
   fld->tzz[s_idx] += wav->wavelet[t] / (mdl->dx * mdl->dz);
 }
 
-float* get_damp1D(modelPar *mdl)
+float* get_damp1D_x(modelPar *mdl)
 {
-  float *damp1d = (float *)calloc(mdl->nzz, sizeof(float));
+  float *damp1d_x = (float *)calloc(mdl->nxx, sizeof(float));
 
-  if (!damp1d) 
+  if (!damp1d_x) 
+  {
+    perror("Could not allocate damp1d");
+    return NULL;
+  }
+
+  for (int j = 0; j < mdl->nxx; j++) 
+  {
+      if (j < mdl->nb) 
+      {
+        int d = mdl->nb - j;
+        damp1d_x[j] = exp(-(mdl->factor * d) * (mdl->factor * d));
+      }
+      else if (j >= mdl->nx + mdl->nb) 
+      {
+        int d = j - (mdl->nx + mdl->nb) + 1;
+        damp1d_x[j] = exp(-(mdl->factor * d) * (mdl->factor * d));
+      }
+      else 
+      {
+        damp1d_x[j] = 1.0f;
+      }
+  }
+
+  return damp1d_x;
+}
+
+float* get_damp1D_z(modelPar *mdl)
+{
+  float *damp1d_z = (float *)calloc(mdl->nzz, sizeof(float));
+
+  if (!damp1d_z) 
   {
     perror("Could not allocate damp1d");
     return NULL;
@@ -317,20 +365,20 @@ float* get_damp1D(modelPar *mdl)
     if ((i < mdl->nb)) 
     {
       int d = mdl->nb - i;
-      damp1d[i] = exp(-(mdl->factor * d) * (mdl->factor * d));
+      damp1d_z[i] = exp(-(mdl->factor * d) * (mdl->factor * d));
     }
-    else if ((i >= mdl->nb) && (i < mdl->nz)) 
+    else if (i >= mdl->nz + mdl->nb) 
     {
-      damp1d[i] = 1.0f;
+      int d = i - (mdl->nz + mdl->nb) + 1;
+      damp1d_z[i] = exp(-(mdl->factor * d) * (mdl->factor * d));
     }
     else 
     {
-      int d = mdl->nb - 1 - (i - (mdl->nz + mdl->nb));
-      damp1d[i] = exp(-(mdl->factor * d) * (mdl->factor * d));
+      damp1d_z[i] = 1.0f;
     }
   }
 
-  return damp1d;
+  return damp1d_z;
 }
 
 void static allocate_fields(fdFields *fld, modelPar *mdl)
@@ -363,7 +411,10 @@ fd
 {
   allocate_fields(fld, mdl);
 
-  float *damp1d = get_damp1D(mdl);
+  damp1d damp;
+
+  damp.damp1d_x = get_damp1D_x(mdl);
+  damp.damp1d_z = get_damp1D_z(mdl);
 
   int snap_ratio = wav->nt / snap->snap_num;
 
@@ -371,10 +422,8 @@ fd
   {
     inject_source(fld, mdl, geom, wav, t);
 
-    fd_velocity_8E2T(mdl, fld, wav, damp1d);
-    fd_pressure_8E2T(mdl, fld, wav, damp1d);
-
-    //apply_boundary(fld, damp1d, nxx, nzz);
+    fd_velocity_8E2T(mdl, fld, wav, &damp);
+    fd_pressure_8E2T(mdl, fld, wav, &damp);
 
     if (snap->snap_bool)
       get_snapshots(snap_ratio, fld, t, mdl);
