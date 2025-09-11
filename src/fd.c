@@ -150,7 +150,7 @@ void apply_boundary(damping_t *damp)
   int nzz = p->nzz;
   int nxx = p->nxx;
 
-	#pragma omp parallel for schedule(static)
+  #pragma omp parallel for
   for (size_t index = 0; index < nxx * nzz; index++) 
   {
     int i = index % nzz;
@@ -168,7 +168,7 @@ void fd_velocity_8E2T()
 	int nxx = p->nxx;
 	int nzz = p->nzz;
 
-	#pragma omp parallel for schedule(static)
+  #pragma omp parallel for
 	for (int index = 0; index < nxx * nzz; index++)
 	{
 		int i = index % nzz;
@@ -216,10 +216,10 @@ void fd_velocity_8E2T()
 
 void fd_pressure_8E2T()
 {
-	int   nxx  = p->nxx;
-	int   nzz  = p->nzz;
-
-	#pragma omp parallel for schedule(static)
+	int nxx  = p->nxx;
+	int nzz  = p->nzz;
+ 
+	#pragma omp parallel for
 	for (int index = 0; index < nxx * nzz; index++)
 	{
 		int i = index % nzz;
@@ -369,6 +369,8 @@ void fd(config_t *config)
   allocate_fields();
 
   set_boundary();
+
+  write_f32_bin_model("data/output/vp.bin", p->vp, p->nxx, p->nzz);
 
   damping_t damp = get_damp();  
 
