@@ -5,12 +5,11 @@
 
 typedef struct 
 {
-  float *x; 
-  float *z;
+  float *x, *z;
 } damping_t;
 
 float* ricker(int nt, float dt, float fmax);
 
-void fd(config_t *p);
+void fd(config_t *config);
 
 #endif // FD_H

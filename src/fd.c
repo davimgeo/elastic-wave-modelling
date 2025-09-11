@@ -17,7 +17,10 @@
 #define FDM8E4 1.19628906f
 
 #define OUTPUT_PATH "data/output/snapshots/"
-      
+     
+/* declaring config struct globally inside this file */
+static config_t *p = NULL;
+
 float* ricker(int nt, float dt, float fmax) 
 {
   float* ricker = (float *)calloc((size_t)nt, sizeof(float));
@@ -36,7 +39,7 @@ float* ricker(int nt, float dt, float fmax)
   return ricker;
 }
 
-void set_boundary(config_t *p)
+void set_boundary()
 {
   int nb  = p->nb;
   int nx  = p->nx;
@@ -98,7 +101,7 @@ void set_boundary(config_t *p)
   free(p->rho); p->rho = rho_ext;
 }
 
-void generate_p(config_t *p)
+void generate_p()
 {
   int nxx = p->nxx;
   int nzz = p->nzz;
@@ -113,7 +116,7 @@ void generate_p(config_t *p)
 	}
 }
 
-void get_snapshots(config_t *p, int time_step)
+void get_snapshots(int time_step)
 {
   if (!(time_step % p->snap_ratio))
   {
@@ -142,7 +145,7 @@ void get_snapshots(config_t *p, int time_step)
   }
 }
 
-void apply_boundary(config_t *p, damping_t *damp)
+void apply_boundary(damping_t *damp)
 {
   int nzz = p->nzz;
   int nxx = p->nxx;
@@ -160,7 +163,7 @@ void apply_boundary(config_t *p, damping_t *damp)
   }
 }
 
-void fd_velocity_8E2T(config_t *p)
+void fd_velocity_8E2T()
 {
 	int nxx = p->nxx;
 	int nzz = p->nzz;
@@ -211,7 +214,7 @@ void fd_velocity_8E2T(config_t *p)
 	}
 }
 
-void fd_pressure_8E2T(config_t *p)
+void fd_pressure_8E2T()
 {
 	int   nxx  = p->nxx;
 	int   nzz  = p->nzz;
@@ -277,7 +280,7 @@ void fd_pressure_8E2T(config_t *p)
 	}
 }
 
-void inject_source(config_t *p, size_t t)
+void inject_source(size_t t)
 {
   int s_idx = (p->sIdz + p->nb) + (p->sIdx + p->nb) * p->nzz;
 
@@ -285,7 +288,7 @@ void inject_source(config_t *p, size_t t)
   p->tzz[s_idx] += p->wavelet[t] / (p->dx * p->dz);
 }
 
-damping_t get_damp(config_t *p)
+damping_t get_damp()
 {
   damping_t damp;
 
@@ -337,7 +340,7 @@ damping_t get_damp(config_t *p)
   return damp;
 }
 
-void allocate_fields(config_t *p)
+void allocate_fields()
 {
   size_t n = p->nxx * p->nzz;
 
@@ -359,27 +362,29 @@ void allocate_fields(config_t *p)
 
 void register_seismogram() {}
 
-void fd(config_t *p)
+void fd(config_t *config)
 {
-  allocate_fields(p);
+  p = config;
 
-  set_boundary(p);
+  allocate_fields();
 
-  damping_t damp = get_damp(p);  
+  set_boundary();
+
+  damping_t damp = get_damp();  
 
   for (size_t t = 0; t < p->nt; t++)
   {
     //register_seismogram();
 
-    inject_source(p, t);
+    inject_source(t);
 
-    fd_velocity_8E2T(p);
-    fd_pressure_8E2T(p);
+    fd_velocity_8E2T();
+    fd_pressure_8E2T();
 
-    apply_boundary(p, &damp);
+    apply_boundary(&damp);
 
     if (p->snap_bool)
-      get_snapshots(p, t);
+      get_snapshots(t);
   }
 
   free(p->txx); free(p->tzz);

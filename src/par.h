@@ -24,7 +24,6 @@ typedef struct {
     /* fields */
     float *txx, *tzz, *txz;
     float *vx, *vz;
-
     // resulted p measured by 0.5*(txx+tzz)
     float *calc_p;
 

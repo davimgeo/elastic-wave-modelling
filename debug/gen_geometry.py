@@ -32,11 +32,11 @@ plt.show()
 
 if SAVE_GEOM:
     np.savetxt(
-        "data/input/receivers.txt", 
-        geom,
-        fmt='%.2f',
-        delimiter=',', 
-        header='rec_pos, rec_depth, src_pos, src_depth'
+     "data/input/geometry.txt", 
+     geom,
+     fmt='%.2f',
+     delimiter=',', 
+     header='rec_pos, rec_depth, src_pos, src_depth'
     )
 
 
