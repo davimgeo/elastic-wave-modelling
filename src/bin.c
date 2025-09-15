@@ -51,58 +51,31 @@ void read_comma_separed_file(const char *path, int nx)
   fclose(fptr);
 }
 
-float* read_f32_bin_model(const char *path, int nx, int nz)
+void read2D(const char* PATH, void* arr, size_t type, int row, int column) 
 {
-  FILE *model_file = fopen(path, "rb"); 
-  if (model_file == NULL) 
-  {
-    printf("Model file could not be opened\n");
-    return NULL;
-  }
-
-  size_t n = nx * nz;
-  float *model = (float *)calloc(n, sizeof(float));
-
-  for (int i = 0; i < nx; i++) 
-  {
-    for (int j = 0; j < nz; j++) 
+    FILE* bin_data = fopen(PATH, "rb"); 
+    if (bin_data == NULL) 
     {
-      if (fread(&model[i * nz + j], sizeof(float), 1, model_file) != 1) 
-      {
-        printf("Error reading from file at (%d,%d)\n", i, j);
-        free(model);
-        fclose(model_file);
-        return NULL;
-      }
+        printf("Could not open the file.\n");
+        exit(-1);
     }
-  }
 
-  fclose(model_file);  
-  return model;
+    fread(arr, type, row * column, bin_data); 
+
+    fclose(bin_data);   
 }
 
-void write_f32_bin_model(const char *path, float *model, int nx, int nz)
+void write2D(const char* PATH, void* arr, size_t type, int row, int column) 
 {
-  FILE *model_file = fopen(path, "wb");
-  if (model_file == NULL) 
-  {
-      printf("Model file could not be created\n");
-      return;
-  }
+    FILE* bin_data = fopen(PATH, "wb"); 
+    if (bin_data == NULL) 
+    {
+        printf("Could not open the file.\n");
+        exit(-1);
+    }
 
-  for (int i = 0; i < nx; i++) 
-  {
-      for (int j = 0; j < nz; j++) 
-      {
-        if (fwrite(&model[i * nz + j], sizeof(float), 1, model_file) != 1) 
-        {
-          printf("Error writing to file at (%d,%d)\n", i, j);
-          fclose(model_file);
-          return;
-        }
-      }
-  }
+    fwrite(arr, type, row * column, bin_data); 
 
-  fclose(model_file);
+    fclose(bin_data);   
 }
 

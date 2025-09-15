@@ -112,8 +112,8 @@ void get_snapshots(const config_t *p, const fields_t *fld, int time_step)
       snprintf(current_snap, sizeof(current_snap), filenames[i],
                p->nxx, p->nzz, time_step);
       snprintf(full_path, sizeof(full_path), "%s%s", OUTPUT_PATH, current_snap);
-
-      write_f32_bin_model(full_path, fields[i], p->nxx, p->nzz);
+  
+      write2D(full_path, fields[i], sizeof(float), p->nzz, p->nxx);
     }
 
     printf("Generating snapshot num %d...\n", time_step);
