@@ -34,7 +34,7 @@ int main(void)
   cfg.fmax    = 30.0f;
   cfg.wavelet = ricker(cfg.nt, cfg.dt, cfg.fmax);
 
-  cfg.snap_bool  = true;
+  cfg.snap_bool  = 1;
   cfg.snap_num   = 100;
   cfg.snap_ratio = cfg.nt / cfg.snap_num;
 

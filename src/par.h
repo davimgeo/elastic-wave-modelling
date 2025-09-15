@@ -2,7 +2,6 @@
 #define PAR_H
 
 #include <stdio.h>
-#include <stdbool.h>
 
 typedef struct {
   /* model parameters */
@@ -15,7 +14,7 @@ typedef struct {
   int    nxx, nzz;
 
   /* snapshot parameters */
-  bool snap_bool;
+  int snap_bool;
   int  snap_num;
   int  snap_ratio;
 
@@ -30,17 +29,19 @@ typedef struct {
 
 } config_t;
 
-typedef struct
-{
-  float *vp, *vs, *rho;
+typedef struct {
+  float *restrict vp;
+  float *restrict vs;
+  float *restrict rho;
 } model_t;
 
-
-typedef struct 
-{ 
-  float *txx, *tzz, *txz;
-  float *vx, *vz;
-  float *calc_p;
+typedef struct { 
+  float *restrict txx;
+  float *restrict tzz;
+  float *restrict txz;
+  float *restrict vx;
+  float *restrict vz;
+  float *restrict calc_p;
 } fields_t;
 
 #endif /* PAR_H */

@@ -62,7 +62,6 @@ static void set_boundary(const config_t *p, model_t *m)
     for (int j = 0; j < nb; j++) 
     {
       // counld vectorize because of strided loop
-      // change this
       vp_ext[i + j * nzz]  = vp_ext[i + nb * nzz];
       vs_ext[i + j * nzz]  = vs_ext[i + nb * nzz];
       rho_ext[i + j * nzz] = rho_ext[i + nb * nzz];
@@ -79,7 +78,6 @@ static void set_boundary(const config_t *p, model_t *m)
   free(m->rho); m->rho = rho_ext;
 }
 
-// simd hit
 static void generate_p(const fields_t *fld, int nxx, int nzz)
 {
   for (int j = 0; j < nxx; j++) 
@@ -124,12 +122,8 @@ void get_snapshots(const config_t *p, const fields_t *fld, int time_step)
 
 static inline void 
 fd_velocity8E2T
-( float *restrict        vx,
-  float *restrict        vz,
-  const float *restrict txx,
-  const float *restrict tzz,
-  const float *restrict txz,
-  const float *restrict rho,
+( fields_t *restrict    fld,
+  const model_t *restrict m,
   int                   nxx,
   int                   nzz,
   float              inv_dx,
@@ -137,6 +131,13 @@ fd_velocity8E2T
   float                  dt,
   damping_t           *damp )
 {
+  float *restrict txx = fld->txx;
+  float *restrict tzz = fld->tzz;
+  float *restrict txz = fld->txz;
+  float *restrict vx  = fld->vx;
+  float *restrict vz  = fld->vz;
+
+  const float *restrict rho = m->rho;
 
   #pragma omp for schedule(static) nowait
   for (int j = 4; j < nxx - 4; j++)
@@ -182,14 +183,8 @@ fd_velocity8E2T
 
 static inline void 
 fd_pressure8E2T
-( float *restrict       txx,
-  float *restrict       tzz,
-  float *restrict       txz,
-  float *restrict        vx,
-  float *restrict        vz,
-  const float *restrict  vp,
-  const float *restrict  vs,
-  const float *restrict rho,
+( fields_t *restrict    fld,
+  const model_t *restrict m,
   int                   nxx,
   int                   nzz,
   float              inv_dx,
@@ -197,6 +192,16 @@ fd_pressure8E2T
   float                  dt,
   damping_t           *damp )
 {
+  float *restrict txx = fld->txx;
+  float *restrict tzz = fld->tzz;
+  float *restrict txz = fld->txz;
+  float *restrict vx  = fld->vx;
+  float *restrict vz  = fld->vz;
+
+  const float *restrict vp  = m->vp;
+  const float *restrict vs  = m->vs;
+  const float *restrict rho = m->rho;
+
   #pragma omp for schedule(static)
   for (int j = 4; j < nxx - 4; j++)
   {
@@ -226,8 +231,8 @@ fd_pressure8E2T
          FDM8E3 * (vz[i + (j - 2) * nzz] - vz[i + (j + 1) * nzz]) +
          FDM8E4 * (vz[i + j * nzz] - vz[i + (j - 1) * nzz])) * inv_dx;
 
-      float vp2 = vp[i + j * nzz] * vp[i + j * nzz];
-      float vs2 = vs[i + j * nzz] * vs[i + j * nzz];
+      float vp2       = vp[i + j * nzz] * vp[i + j * nzz];
+      float vs2       = vs[i + j * nzz] * vs[i + j * nzz];
       float vs2_xp    = vs[(i + 1) + j * nzz] * vs[(i + 1) + j * nzz];
       float vs2_zp    = vs[i + (j + 1) * nzz] * vs[i + (j + 1) * nzz];
       float vs2_xp_zp = vs[(i + 1) + (j + 1) * nzz] * vs[(i + 1) + (j + 1) * nzz];
@@ -235,10 +240,10 @@ fd_pressure8E2T
       float lamb = rho[i + j * nzz] * (vp2 - 2.0f * vs2);
       float mi   = rho[i + j * nzz] * vs2;
 
-      float mi1 = rho[i + j * nzz]         * vs2;
-      float mi2 = rho[(i + 1) + j * nzz]   * vs2_xp;
-      float mi3 = rho[i + (j + 1) * nzz]   * vs2_zp;
-      float mi4 = rho[(i + 1) + (j + 1) * nzz] * vs2_xp_zp;
+      float mi1    = rho[i + j * nzz]         * vs2;
+      float mi2    = rho[(i + 1) + j * nzz]   * vs2_xp;
+      float mi3    = rho[i + (j + 1) * nzz]   * vs2_zp;
+      float mi4    = rho[(i + 1) + (j + 1) * nzz] * vs2_xp_zp;
       float mi_avg = 4.0f / ((1.0f / mi1) + (1.0f / mi2) + (1.0f / mi3) + (1.0f / mi4));
 
       txx[i + j * nzz] += dt * ((lamb + 2.0f * mi) * dvx_dx + lamb * dvz_dz);
@@ -354,17 +359,6 @@ void fd(const config_t *p, model_t *m, fields_t *fld)
 
   float dt = p->dt;
 
-  float *restrict txx    = fld->txx;
-  float *restrict tzz    = fld->tzz;
-  float *restrict txz    = fld->txz;
-  float *restrict vx     = fld->vx;
-  float *restrict vz     = fld->vz;
-  float *restrict calc_p = fld->calc_p;
-
-  float *restrict vp  = m->vp;
-  float *restrict vs  = m->vs;
-  float *restrict rho = m->rho;
-
   #pragma omp parallel
   {
     for (size_t t = 0; t < p->nt; t++) 
@@ -372,11 +366,8 @@ void fd(const config_t *p, model_t *m, fields_t *fld)
       #pragma omp single
       inject_source(p, fld, t);
 
-      fd_pressure8E2T(txx, tzz, txz, vx, vz, vp, vs, rho,
-                      nxx, nzz, inv_dx, inv_dz, dt, &damp);
-
-      fd_velocity8E2T(vx, vz, txx, tzz, txz, rho,
-                      nxx, nzz, inv_dx, inv_dz, dt, &damp);
+      fd_pressure8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
+      fd_velocity8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
 
       #pragma omp single
       if (p->snap_bool)
