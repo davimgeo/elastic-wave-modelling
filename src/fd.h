@@ -8,8 +8,6 @@ typedef struct
   float *x, *z;
 } damping_t;
 
-float* ricker(int nt, float dt, float fmax);
-
-void fd(config_t *config);
+void fd(const config_t *p, model_t *m, fields_t *fld);
 
 #endif // FD_H

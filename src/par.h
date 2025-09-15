@@ -5,38 +5,43 @@
 #include <stdbool.h>
 
 typedef struct {
-    /* model parameters */
-    char  *vp_path, *vs_path, *rho_path;
+  /* model parameters */
+  char  *vp_path, *vs_path, *rho_path;
 
-    int    nx, nz, nb;
-    float  dx, dz;
+  int    nx, nz, nb;
+  float  dx, dz;
 
-    float  factor;
-    int    nxx, nzz;
+  float  factor;
+  int    nxx, nzz;
 
-    float *vp, *vs, *rho;
+  /* snapshot parameters */
+  bool snap_bool;
+  int  snap_num;
+  int  snap_ratio;
 
-    /* snapshot parameters */
-    bool snap_bool;
-    int  snap_num;
-    int  snap_ratio;
+  /* geometry parameters */
+  int sIdx, sIdz;
 
-    /* fields */
-    float *txx, *tzz, *txz;
-    float *vx, *vz;
-    // resulted p measured by 0.5*(txx+tzz)
-    float *calc_p;
-
-    /* geometry parameters */
-    int sIdx, sIdz;
-
-    /* wavelet parameters */
-    int    nt;
-    float  dt;
-    float  fmax;
-    float *wavelet;
+  /* wavelet parameters */
+  int    nt;
+  float  dt;
+  float  fmax;
+  float *wavelet;
 
 } config_t;
+
+typedef struct
+{
+  float *vp, *vs, *rho;
+} model_t;
+
+
+typedef struct 
+{ 
+  float *txx, *tzz, *txz;
+  float *vx, *vz;
+  float *calc_p;
+} fields_t;
 
 #endif /* PAR_H */
 

@@ -32,11 +32,17 @@ def update(i):
     snap = np.fromfile(
         os.path.join(PATH, pSnapshots[i]), dtype=np.float32, count=nxx*nzz
     ).reshape([nzz, nxx], order='F')
-    
-    img_model = ax.imshow(salt, cmap='viridis', aspect='auto', alpha=0.5)
-    img_snap = ax.imshow(snap, cmap='Greys', aspect='auto', alpha=0.7)
 
-    ax.set_title(f"{pSnapshots[i]}")
+    #scale = 0.3*np.std(snap)
+
+    img_model = ax.imshow(salt, cmap='viridis', aspect='auto', alpha=0.5)
+    img_snap = ax.imshow(
+            snap, cmap='Greys', 
+            aspect='auto', alpha=0.7,
+            #vmin=-scale, vmax=scale
+        )
+
+    ax.set_title(f"{vxSnapshots[i]}")
     
     return img_model, img_snap,
 
@@ -50,6 +56,6 @@ pSnapshots, vxSnapshots, vzSnapshots = getSnapshotNames(PATH)
 
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
 
-ani = FuncAnimation(fig, update, frames=len(pSnapshots), blit=False, interval=100)
+ani = FuncAnimation(fig, update, frames=len(vxSnapshots), blit=False, interval=100)
 # ani.save("animation.mp4", writer="ffmpeg", fps=20)
 plt.show()
