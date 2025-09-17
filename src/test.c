@@ -1,9 +1,9 @@
 #include <stdlib.h>
 
 #include "bin.h"
+#include "par.h"
 
 #define PATH "data/input/geometry.txt"
-
 int main(void)
 {
   int f_lines = 10;

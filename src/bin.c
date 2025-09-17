@@ -6,13 +6,7 @@
 
 #define BUFFER_SIZE 64
 
-typedef struct
-{
-  float *sIdx, sIdz;
-  float *rIdx, rIdz;
-} geom_t;
-
-void read_geometry(const char *path, int f_lines, int f_cols)
+void read_geometry(const char *path, int f_lines, int f_cols, geom_t *geom)
 {
   FILE* fptr = fopen(path, "r");
   if (fptr == NULL) 
@@ -21,30 +15,74 @@ void read_geometry(const char *path, int f_lines, int f_cols)
       exit(-1);
   }
 
-  float* result = (float *)malloc(f_lines * f_cols * sizeof(float));
+  int total_size = f_lines * f_cols;
 
-  char* buff[BUFFER_SIZE] = "";
+  float* result = (float *)malloc(total_size * sizeof(float));
+
+  char buff[BUFFER_SIZE];
+  int len = 0, idx = 0;
+
   char ch;
-  int len = 0;
-
-  while ((ch = fgetc(fptr)) != EOF && ch != '#' && ch != ',')
+  while ((ch = fgetc(fptr)) != EOF && idx < total_size) 
   {
-    buff[len++] = ch;
+    if (ch == '#') 
+    {
+      while (ch != '\n' && ch != EOF) 
+        ch = fgetc(fptr);
+      continue;
+    }
 
-    buff[len] = "\0";
-    printf("%s", buff);
-    //result[i * f_lines + j] = atof(buff);  
+    if (ch == ' ' || ch == '\n' || ch == ',') 
+      continue;
 
+    len = 0;
+    while (ch != ',' && ch != '\n' && 
+        ch != EOF && ch != ' ') 
+    {
+        buff[len++] = ch;
+        ch = fgetc(fptr);
+    }
+    buff[len] = '\0';
+
+    result[idx++] = atof(buff);
   }
 
-  // for (int i = 0; i < f_lines; i++) 
-  // {
-  //   for (int j = 0; j < f_cols; j++) 
-  //   {
-  //     printf("%f ", result[i * f_cols + j]);
-  //   }
-  //   printf("\n");
-  // }
+  // rec pos
+  int col1 = 0;
+  for (int i = 0; i < f_lines; i++) 
+  {
+    geom->rIdx[i] = result[i * f_lines];
+  }
+
+  // rec depth
+  int col2 = 1;
+  for (int i = 0; i < f_lines; i++) 
+  {
+    geom->rIdz[i] = result[i * f_lines + col2];
+  }
+
+  // src pos
+  int col3 = 2;
+  for (int i = 0; i < f_lines; i++) 
+  {
+    geom->sIdx[i] = result[i * f_lines + col3];
+  }
+
+  // src pos
+  int col4 = 3;
+  for (int i = 0; i < f_lines; i++) 
+  {
+    geom->sIdz[i] = result[i * f_lines + col4];
+  }
+
+  for (int i = 0; i < f_lines; i++) 
+  {
+    for (int j = 0; j < f_cols; j++) 
+    {
+      printf("%f ", result[i * f_cols + j]);
+    }
+    printf("\n");
+  }
 
   fclose(fptr);
 }
