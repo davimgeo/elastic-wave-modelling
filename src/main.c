@@ -1,8 +1,10 @@
 #include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "par.h"
 #include "bin.h"
 #include "wavelet.h"
+#include "par.h"
 #include "fd.h"
 
 #define OUTPUT_PATH "data/output/"
@@ -13,43 +15,44 @@ int main(void)
 {
   clock_gettime(CLOCK_MONOTONIC, &start);
 
-  config_t cfg;
+  model_par_t model_par;
+  model_par.rho_path = "data/input/model_rho_2d_1150x648.bin";
+  model_par.vp_path  = "data/input/model_vp_2d_1150x648.bin";
+  model_par.vs_path  = "data/input/model_vs_2d_1150x648.bin";
 
-  cfg.rho_path = "data/input/model_rho_2d_1150x648.bin";
-  cfg.vp_path  = "data/input/model_vp_2d_1150x648.bin";
-  cfg.vs_path  = "data/input/model_vs_2d_1150x648.bin";
+  model_par.nx     = 1150;
+  model_par.nz     = 648;
+  model_par.nb     = 100;
+  model_par.factor = 0.015f;
+  model_par.dx     = 5.0f;
+  model_par.dz     = 5.0f;
 
-  cfg.nx     = 1150;
-  cfg.nz     = 648;
-  cfg.nb     = 100;
-  cfg.factor = 0.015f;
-  cfg.dx     = 5.0f;
-  cfg.dz     = 5.0f;
+  model_par.nxx = model_par.nx + 2 * model_par.nb;
+  model_par.nzz = model_par.nz + 2 * model_par.nb;
 
-  cfg.nxx = cfg.nx + 2 * cfg.nb;
-  cfg.nzz = cfg.nz + 2 * cfg.nb;
+  wavelet_t wavelet;
+  wavelet.nt      = 5001;
+  wavelet.dt      = 4.4e-4f;
+  wavelet.fmax    = 30.0f;
+  wavelet.wavelet = ricker(wavelet.nt, wavelet.dt, wavelet.fmax);
 
-  cfg.nt      = 5001;
-  cfg.dt      = 4.4e-4f;
-  cfg.fmax    = 30.0f;
-  cfg.wavelet = ricker(cfg.nt, cfg.dt, cfg.fmax);
+  snap_t snap;
+  snap.snap_bool  = 1;
+  snap.snap_num   = 100;
+  snap.snap_ratio = wavelet.nt / snap.snap_num;
 
-  cfg.snap_bool  = 1;
-  cfg.snap_num   = 100;
-  cfg.snap_ratio = cfg.nt / cfg.snap_num;
+  model_t model;
+  model.vp  = malloc(sizeof(float) * model_par.nx * model_par.nz);
+  model.vs  = malloc(sizeof(float) * model_par.nx * model_par.nz);
+  model.rho = malloc(sizeof(float) * model_par.nx * model_par.nz);
 
-  cfg.sIdx = 0.5 * (cfg.nxx - cfg.nb);
-  cfg.sIdz = 0;
-
-  model_t m;
-
-  m.vp  = read_f32_bin_model(cfg.vp_path,  cfg.nx, cfg.nz);
-  m.vs  = read_f32_bin_model(cfg.vs_path,  cfg.nx, cfg.nz);
-  m.rho = read_f32_bin_model(cfg.rho_path, cfg.nx, cfg.nz);
+  read2D(model_par.vp_path,  model.vp, sizeof(float), model_par.nx, model_par.nz);
+  read2D(model_par.vs_path,  model.vs, sizeof(float), model_par.nx, model_par.nz);
+  read2D(model_par.rho_path, model.rho, sizeof(float), model_par.nx, model_par.nz);
 
   fields_t fld = {0};
 
-  fd(&cfg, &m, &fld);
+  fd(&model_par, &wavelet, &snap, &model, &fld);
 
   clock_gettime(CLOCK_MONOTONIC, &end);
 
@@ -57,6 +60,12 @@ int main(void)
                   + (end.tv_nsec - start.tv_nsec) / 1e9;
 
   printf("Elapsed: %.4f seconds\n", elapsed);
+
+  free(m.vp);
+  free(m.vs);
+  free(m.rho);
+  free(wavelet.wavelet);
+
   return 0;
 }
 

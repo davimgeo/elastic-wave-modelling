@@ -6,8 +6,9 @@
 
 int main(void)
 {
- int nx = 648;
+  int f_lines = 10;
+  int f_cols = 4;
 
- read_comma_separed_file(PATH, nx); 
+  read_geometry(PATH, f_lines, f_cols);
 
 }

@@ -1,81 +1,79 @@
 #include <stdio.h>
-#include <regex.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "bin.h"
 
-#define GEOM_COL 4
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 64
 
-#define PATTERN_COMMA "^[0-9]+(\\.[0-9]+)?(,[0-9]+(\\.[0-9]+)?)*$"
+typedef struct
+{
+  float *sIdx, sIdz;
+  float *rIdx, rIdz;
+} geom_t;
 
-void read_comma_separed_file(const char *path, int nx)
+void read_geometry(const char *path, int f_lines, int f_cols)
 {
   FILE* fptr = fopen(path, "r");
-
-  regex_t regex;
-  int value;
-
-  value = regcomp(&regex, PATTERN_COMMA, REG_EXTENDED);
-  if (value) 
+  if (fptr == NULL) 
   {
-    fprintf(stderr, "Could not compile regex\n");
-    exit(1);
+      printf("Could not open the file.\n");
+      exit(-1);
   }
 
-  char msgbuf[BUFFER_SIZE];
+  float* result = (float *)malloc(f_lines * f_cols * sizeof(float));
 
-  while (fgets(msgbuf, BUFFER_SIZE, fptr) != NULL) 
+  char* buff[BUFFER_SIZE] = "";
+  char ch;
+  int len = 0;
+
+  while ((ch = fgetc(fptr)) != EOF && ch != '#' && ch != ',')
   {
-    if (msgbuf[0] != '#') 
-    {
-      msgbuf[strcspn(msgbuf, "\n")] = 0;
+    buff[len++] = ch;
 
-      value = regexec(&regex, msgbuf, 0, NULL, 0);
-      if (!value) 
-      {
-        puts("Match");
-      } 
-      else 
-      {
-        char errbuf[BUFFER_SIZE];
-        regerror(value, &regex, errbuf, sizeof(errbuf));
-        fprintf(stderr, "Regex match failed: %s\n", errbuf);
-        exit(1);
-      }
-    }
+    buff[len] = "\0";
+    printf("%s", buff);
+    //result[i * f_lines + j] = atof(buff);  
+
   }
 
-  regfree(&regex);
+  // for (int i = 0; i < f_lines; i++) 
+  // {
+  //   for (int j = 0; j < f_cols; j++) 
+  //   {
+  //     printf("%f ", result[i * f_cols + j]);
+  //   }
+  //   printf("\n");
+  // }
+
   fclose(fptr);
 }
 
 void read2D(const char* PATH, void* arr, size_t type, int row, int column) 
 {
-    FILE* bin_data = fopen(PATH, "rb"); 
-    if (bin_data == NULL) 
-    {
-        printf("Could not open the file.\n");
-        exit(-1);
-    }
+  FILE* bin_data = fopen(PATH, "rb"); 
+  if (bin_data == NULL) 
+  {
+      printf("Could not open the file.\n");
+      exit(-1);
+  }
 
-    fread(arr, type, row * column, bin_data); 
+  fread(arr, type, row * column, bin_data); 
 
-    fclose(bin_data);   
+  fclose(bin_data);   
 }
 
 void write2D(const char* PATH, void* arr, size_t type, int row, int column) 
 {
-    FILE* bin_data = fopen(PATH, "wb"); 
-    if (bin_data == NULL) 
-    {
-        printf("Could not open the file.\n");
-        exit(-1);
-    }
+  FILE* bin_data = fopen(PATH, "wb"); 
+  if (bin_data == NULL) 
+  {
+      printf("Could not write the file.\n");
+      exit(-1);
+  }
 
-    fwrite(arr, type, row * column, bin_data); 
+  fwrite(arr, type, row * column, bin_data); 
 
-    fclose(bin_data);   
+  fclose(bin_data);   
 }
 

@@ -6,7 +6,6 @@
 
 #include "bin.h"
 #include "fd.h"
-#include "par.h"
 
 /* finite-difference coefficients */
 #define FDM8E1 6.97545e-4f
