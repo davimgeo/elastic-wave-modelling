@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-SAVE_GEOM = True
+SAVE_GEOM = False
 
 SRC_DEPTH = 10
 REC_DEPTH = 6
@@ -14,17 +14,20 @@ salt = np.fromfile(
     "data/input/model_vp_2d_1150x648.bin", dtype=np.float32, count=nx*nz
 ).reshape([nz, nx], order='F')
 
-# columns:
-# rec_pos / rec_depth / src_pos / src_depth 
-geom = np.zeros((nx, 4))
+# rec_pos / rec_depth
+rec = np.zeros((nx, 2))
 
-geom[:, 0] = np.arange(0, nx)
-geom[:, 1] = REC_DEPTH
-geom[:, 2] = nx // 2
-geom[:, 3] = SRC_DEPTH
+rec[:, 0] = np.arange(0, nx)
+rec[:, 1] = REC_DEPTH
 
-plt.plot(geom[:,0], geom[:,1], 'b*')
-plt.plot(geom[:,2], geom[:,3], 'ro')
+# src_pos / src_depth
+src = np.zeros((nx, 2))
+
+src[:, 0] = nx // 2
+src[:, 1] = SRC_DEPTH
+
+plt.plot(rec[:,0], rec[:,1], 'b*')
+plt.plot(src[:,0], src[:,1], 'ro')
 
 plt.imshow(salt)
 
@@ -32,11 +35,19 @@ plt.show()
 
 if SAVE_GEOM:
     np.savetxt(
-     "data/input/geometry.txt", 
-     geom,
+     "data/input/receivers.txt", 
+     rec,
      fmt='%.2f',
      delimiter=',', 
-     header='rec_pos, rec_depth, src_pos, src_depth'
+     header='rec_pos, rec_depth'
+    )
+
+    np.savetxt(
+     "data/input/sources.txt", 
+     src,
+     fmt='%.2f',
+     delimiter=',', 
+     header='src_pos, src_depth'
     )
 
 

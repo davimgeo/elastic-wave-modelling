@@ -1,18 +1,20 @@
-CFLAGS = -std=c99 -O3 -march=native -Wall -fopenmp -mavx2 -mfma
+CFLAGS = -std=c99 -O0 -g -march=native -Wall -fopenmp -mavx2 -mfma
 
+SRCS = $(wildcard src/*.c)
 
-SRCS = src/main.c src/bin.c src/wavelet.c src/fd.c 
+TARGET = run.out
 
 all:
-	gcc $(CFLAGS) $(SRCS) -o run.out -lm
+	gcc $(CFLAGS) $(SRCS) -o $(TARGET) -lm
 
 run: all
-	./run.out
+	./$(TARGET)
 	
-	rm run.out
+	rm $(TARGET)
 
 clean:
-	rm run.out
+	rm $(TARGET)
 
 clean_snap:
 	rm data/output/snapshots/*.bin
+

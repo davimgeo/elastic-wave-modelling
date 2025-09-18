@@ -2,23 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "bin.h"
+#include "io_bin.h"
 
 #define BUFFER_SIZE 64
 
-void read_geometry(const char *path, int f_lines, int f_cols, geom_t *geom)
+static void read_file_separed_by_comma(FILE* fptr, int total_size, float* result)
 {
-  FILE* fptr = fopen(path, "r");
-  if (fptr == NULL) 
-  {
-      printf("Could not open the file.\n");
-      exit(-1);
-  }
-
-  int total_size = f_lines * f_cols;
-
-  float* result = (float *)malloc(total_size * sizeof(float));
-
   char buff[BUFFER_SIZE];
   int len = 0, idx = 0;
 
@@ -46,42 +35,53 @@ void read_geometry(const char *path, int f_lines, int f_cols, geom_t *geom)
 
     result[idx++] = atof(buff);
   }
+}
 
-  // rec pos
-  int col1 = 0;
-  for (int i = 0; i < f_lines; i++) 
+void read_receivers(const char *PATH, int f_lines, int f_cols, float *rIdx, float *rIdz)
+{
+  FILE* fptr = fopen(PATH, "r");
+  if (fptr == NULL) 
   {
-    geom->rIdx[i] = result[i * f_lines];
+      printf("Could not open the file.\n");
+      exit(-1);
   }
 
-  // rec depth
-  int col2 = 1;
+  int total_size = f_lines * f_cols;
+
+  float* result = (float *)malloc(total_size * sizeof(float));
+
+  read_file_separed_by_comma(fptr, total_size, result);
+
+  int col1 = 0, col2 = 1;
   for (int i = 0; i < f_lines; i++) 
   {
-    geom->rIdz[i] = result[i * f_lines + col2];
+    rIdx[i] = result[i * f_cols + col1];
+    rIdz[i] = result[i * f_cols + col2];
   }
 
-  // src pos
-  int col3 = 2;
-  for (int i = 0; i < f_lines; i++) 
+  fclose(fptr);
+}
+
+void read_sources(const char *PATH, int f_lines, int f_cols, float *sIdx, float *sIdz)
+{
+  FILE* fptr = fopen(PATH, "r");
+  if (fptr == NULL) 
   {
-    geom->sIdx[i] = result[i * f_lines + col3];
+      printf("Could not open the file.\n");
+      exit(-1);
   }
 
-  // src pos
-  int col4 = 3;
-  for (int i = 0; i < f_lines; i++) 
-  {
-    geom->sIdz[i] = result[i * f_lines + col4];
-  }
+  int total_size = f_lines * f_cols;
 
+  float* result = (float *)malloc(total_size * sizeof(float));
+
+  read_file_separed_by_comma(fptr, total_size, result);
+
+  int col1 = 0, col2 = 1;
   for (int i = 0; i < f_lines; i++) 
   {
-    for (int j = 0; j < f_cols; j++) 
-    {
-      printf("%f ", result[i * f_cols + j]);
-    }
-    printf("\n");
+    sIdx[i] = result[i * f_cols + col1];
+    sIdz[i] = result[i * f_cols + col2];
   }
 
   fclose(fptr);
@@ -114,4 +114,3 @@ void write2D(const char* PATH, void* arr, size_t type, int row, int column)
 
   fclose(bin_data);   
 }
-

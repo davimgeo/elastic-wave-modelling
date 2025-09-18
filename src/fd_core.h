@@ -1,7 +1,7 @@
 #ifndef FD_H
 #define FD_H
 
-#include "par.h"
+#include "cfg_par.h"
 
 typedef struct 
 { 
@@ -18,6 +18,6 @@ typedef struct
   float *x, *z;
 } damping_t;
 
-void fd(const config_t *p, model_t *m, fields_t *fld);
+void fd(const config_t *cfg, fields_t *fld, model_t *m);
 
 #endif // FD_H

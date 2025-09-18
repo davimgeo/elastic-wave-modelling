@@ -30,19 +30,13 @@ def update(i):
     ).reshape([nzz, nxx], order='F')
     
     snap = np.fromfile(
-        os.path.join(PATH, pSnapshots[i]), dtype=np.float32, count=nxx*nzz
+        os.path.join(PATH, vxSnapshots[i]), dtype=np.float32, count=nxx*nzz
     ).reshape([nzz, nxx], order='F')
-
-    #scale = 0.3*np.std(snap)
-
+    
     img_model = ax.imshow(salt, cmap='viridis', aspect='auto', alpha=0.5)
-    img_snap = ax.imshow(
-            snap, cmap='Greys', 
-            aspect='auto', alpha=0.7,
-            #vmin=-scale, vmax=scale
-        )
+    img_snap = ax.imshow(snap, cmap='Greys', aspect='auto', alpha=0.7)
 
-    ax.set_title(f"{vxSnapshots[i]}")
+    ax.set_title(f"{pSnapshots[i]}")
     
     return img_model, img_snap,
 
@@ -59,3 +53,17 @@ fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
 ani = FuncAnimation(fig, update, frames=len(vxSnapshots), blit=False, interval=100)
 # ani.save("animation.mp4", writer="ffmpeg", fps=20)
 plt.show()
+
+nt = 5001
+nrec = 1151;
+
+seismogram = np.fromfile(
+    "data/output/seismogram_vx_1150x648.bin", dtype=np.float32, count=nt*nrec
+).reshape([nt, nrec], order='F')
+
+scale = 0.8*np.std(seismogram)
+plt.imshow(seismogram, cmap="Greys", vmin=-scale, vmax=scale)
+
+plt.show()
+
+

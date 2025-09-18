@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include <omp.h>
 
-#include "bin.h"
-#include "fd.h"
+#include "io_bin.h"
+#include "model_ext.h"
+#include "fd_damp.h"
+#include "fd_core.h"
+#include "cfg_par.h"
 
 /* finite-difference coefficients */
 #define FDM8E1 6.97545e-4f
@@ -15,73 +17,11 @@
 
 #define OUTPUT_PATH "data/output/snapshots/"
 
-static void set_boundary(const config_t *p, model_t *m)
-{
-  int nb  = p->nb;
-  int nx  = p->nx;
-  int nz  = p->nz;
-  int nxx = p->nxx;   
-  int nzz = p->nzz;  
-
-  size_t n = nxx * nzz;
-
-  float *vp_ext  = (float *)calloc(n, sizeof(float));
-  float *vs_ext  = (float *)calloc(n, sizeof(float));
-  float *rho_ext = (float *)calloc(n, sizeof(float));
-
-  /* copy original arr into ext */
-  for (int j = 0; j < nx; j++) 
-  {
-    for (int i = 0; i < nz; i++) 
-    {
-      vp_ext[(i + nb) + (j + nb) * nzz]  = m->vp[i + j * nz];
-      vs_ext[(i + nb) + (j + nb) * nzz]  = m->vs[i + j * nz];
-      rho_ext[(i + nb) + (j + nb) * nzz] = m->rho[i + j * nz];
-    }
-  }
-
-  /* pad bottom */
-  for (int j = nb; j < nx+nb; j++) 
-  {
-    for (int i = 0; i < nb; i++) 
-    {
-      vp_ext[i + j * nzz]  = vp_ext[nb + j * nzz];
-      vs_ext[i + j * nzz]  = vs_ext[nb + j * nzz];
-      rho_ext[i + j * nzz] = rho_ext[nb + j * nzz];
-
-      vp_ext[(nz + nb + i) + j * nzz]  = vp_ext[(nz + nb - 1) + j * nzz];
-      vs_ext[(nz + nb + i) + j * nzz]  = vs_ext[(nz + nb - 1) + j * nzz];
-      rho_ext[(nz + nb + i) + j * nzz] = rho_ext[(nz + nb - 1) + j * nzz];
-    }
-  }
-
-  /* pad left and right respectively */
-  for (int i = 0; i < nzz; i++) 
-  {
-    for (int j = 0; j < nb; j++) 
-    {
-      // counld vectorize because of strided loop
-      vp_ext[i + j * nzz]  = vp_ext[i + nb * nzz];
-      vs_ext[i + j * nzz]  = vs_ext[i + nb * nzz];
-      rho_ext[i + j * nzz] = rho_ext[i + nb * nzz];
-
-      vp_ext[i + (nx + nb + j) * nzz]  = vp_ext[i + (nx + nb - 1) * nzz];
-      vs_ext[i + (nx + nb + j) * nzz]  = vs_ext[i + (nx + nb - 1) * nzz];
-      rho_ext[i + (nx + nb + j) * nzz] = rho_ext[i + (nx + nb - 1) * nzz];  
-    }
-  }
-
-  /* swap pointers to new arr */
-  free(m->vp);  m->vp  = vp_ext;
-  free(m->vs);  m->vs  = vs_ext;
-  free(m->rho); m->rho = rho_ext;
-}
-
 static void generate_p(const fields_t *fld, int nxx, int nzz)
 {
-  for (int j = 0; j < nxx; j++) 
+  for (int j = 0; j < nxx; j++)
   {
-    for (int i = 0; i < nzz; i++) 
+    for (int i = 0; i < nzz; i++)
     {
       fld->calc_p[i + j * nzz] =
         0.5f * (fld->txx[i + j * nzz] + fld->tzz[i + j * nzz]);
@@ -89,37 +29,37 @@ static void generate_p(const fields_t *fld, int nxx, int nzz)
   }
 }
 
-void get_snapshots(const config_t *p, const fields_t *fld, int time_step)
+static void get_snapshots(const config_t *cfg, const fields_t *fld, int time_step)
 {
-  if (!(time_step % p->snap_ratio)) 
+  if (!(time_step % cfg->snap_ratio))
   {
-    generate_p(fld, p->nxx, p->nzz);
+  generate_p(fld, cfg->nxx, cfg->nzz);
 
-    const char *filenames[] = {
-      "p_%dx%d_tid_%d.bin",
-      "vx_%dx%d_tid_%d.bin",
-      "vz_%dx%d_tid_%d.bin"
-    };
+  const char *filenames[] = {
+    "p_%dx%d_tid_%d.bin",
+    "vx_%dx%d_tid_%d.bin",
+    "vz_%dx%d_tid_%d.bin"
+  };
 
-    float *fields[] = { fld->calc_p, fld->vx, fld->vz };
+  float *fields[] = { fld->calc_p, fld->vx, fld->vz };
 
-    char current_snap[256], full_path[512];
+  char current_snap[256], full_path[512];
 
-    #define FIELDS_SIZE 3
-    for (int i = 0; i < FIELDS_SIZE; i++) 
-    {
-      snprintf(current_snap, sizeof(current_snap), filenames[i],
-               p->nxx, p->nzz, time_step);
-      snprintf(full_path, sizeof(full_path), "%s%s", OUTPUT_PATH, current_snap);
-  
-      write2D(full_path, fields[i], sizeof(float), p->nzz, p->nxx);
-    }
+  #define FIELDS_SIZE 3
+  for (int i = 0; i < FIELDS_SIZE; i++)
+  {
+    snprintf(current_snap, sizeof(current_snap), filenames[i],
+              cfg->nxx, cfg->nzz, time_step);
+    snprintf(full_path, sizeof(full_path), "%s%s", OUTPUT_PATH, current_snap);
 
-    printf("Generating snapshot num %d...\n", time_step);
+    write2D(full_path, fields[i], sizeof(float), cfg->nzz, cfg->nxx);
+  }
+
+  printf("Generating snapshot num %d...\n", time_step);
   }
 }
 
-static inline void 
+static inline void
 fd_velocity8E2T
 ( fields_t *restrict    fld,
   const model_t *restrict m,
@@ -173,14 +113,13 @@ fd_velocity8E2T
       vx[i + j * nzz] += dt * rho_inv  * (dtxx_dx + dtxz_dz);
       vz[i + j * nzz] += dt * rho_inv2 * (dtxz_dx + dtzz_dz);
 
-      // apply boundary
       vx[i + j * nzz] *= (damp->x[j] * damp->z[i]);
       vz[i + j * nzz] *= (damp->x[j] * damp->z[i]);
     }
   }
 }
 
-static inline void 
+static inline void
 fd_pressure8E2T
 ( fields_t *restrict    fld,
   const model_t *restrict m,
@@ -249,7 +188,6 @@ fd_pressure8E2T
       tzz[i + j * nzz] += dt * ((lamb + 2.0f * mi) * dvz_dz + lamb * dvx_dx);
       txz[i + j * nzz] += dt * mi_avg * (dvx_dz + dvz_dx);
 
-      // apply boundary
       txx[i + j * nzz] *= (damp->x[j] * damp->z[i]);
       tzz[i + j * nzz] *= (damp->x[j] * damp->z[i]);
       txz[i + j * nzz] *= (damp->x[j] * damp->z[i]);
@@ -257,125 +195,119 @@ fd_pressure8E2T
   }
 }
 
-void static inject_source(const config_t *p, fields_t *fld, size_t t)
+static void inject_source
+( float              sIdx_f,
+  float              sIdz_f,
+  float              inv_dx_dz,
+  const config_t    *cfg,
+  fields_t          *fld,
+  size_t             t )
 {
-  int s_idx = (p->sIdz + p->nb) + (p->sIdx + p->nb) * p->nzz;
+  int sIdx = (int)sIdx_f;
+  int sIdz = (int)sIdz_f;
 
-  fld->txx[s_idx] += p->wavelet[t] / (p->dx * p->dz);
-  fld->tzz[s_idx] += p->wavelet[t] / (p->dx * p->dz);
+  int s_idx = (sIdz + cfg->nb) + (sIdx + cfg->nb) * cfg->nzz;
+
+  fld->txx[s_idx] += cfg->wavelet[t] * inv_dx_dz;
+  fld->tzz[s_idx] += cfg->wavelet[t] * inv_dx_dz;
 }
 
-static void get_damp_x(damping_t *damp, const config_t *p)
+static void init_fields(fields_t *fld, int nxx, int nzz)
 {
-  for (int j = 0; j < p->nxx; j++) 
+  size_t n = (size_t)nxx * (size_t)nzz;
+
+  fld->txx = (float *)calloc(n, sizeof(float));
+  fld->tzz = (float *)calloc(n, sizeof(float));
+  fld->txz = (float *)calloc(n, sizeof(float));
+  fld->vx  = (float *)calloc(n, sizeof(float));
+  fld->vz  = (float *)calloc(n, sizeof(float));
+
+  fld->calc_p = (float *)calloc(n, sizeof(float));
+
+  if (!fld->txx || !fld->tzz || !fld->txz || !fld->vx || !fld->vz || !fld->calc_p) 
   {
-    // same as nb <= j <= nz + nb
-    if ((unsigned)(j - p->nb) < (p->nx)) 
-    {
-      damp->x[j] = 1.0f;
-    }
-    else if (j < p->nb) 
-    {
-      int d = p->nb - j;
-      damp->x[j] = exp(-(p->factor * d) * (p->factor * d));
-    }
-    else 
-    {
-      int d = j - (p->nb + p->nx - 1);
-      damp->x[j] = exp(-(p->factor * d) * (p->factor * d));
-    }
+    perror("Could not allocate fields\n");
+    exit(EXIT_FAILURE);
   }
 }
 
-static void get_damp_z(damping_t *damp, const config_t *p)
+static void free_fields(fields_t *fld)
 {
-  for (int i = 0; i < p->nzz; i++) 
-  {
-    // same as nb <= i <= nz + nb
-    if ((unsigned)(i - p->nb) < (p->nz)) 
-    {
-      damp->z[i] = 1.0f;
-    }
-    else if (i < p->nb) 
-    {
-      int d = p->nb - i;
-      damp->z[i] = exp(-(p->factor * d) * (p->factor * d));
-    }
-    else 
-    {
-      int d = i - (p->nb + p->nz - 1);
-      damp->z[i] = exp(-(p->factor * d) * (p->factor * d));
-    }
-   }
+  free(fld->txx);
+  free(fld->tzz);
+  free(fld->txz);
+  free(fld->vx);
+  free(fld->vz);
+  free(fld->calc_p);
 }
 
-damping_t static get_damp(const config_t *p)
+static void
+register_seismogram
+( int t,
+  const config_t *cfg,
+  float  inv_dx_dz,
+  float *seismogram,
+  float *field )
 {
-  damping_t damp;
-
-  damp.x = (float *)calloc(p->nxx, sizeof(float));
-  damp.z = (float *)calloc(p->nzz, sizeof(float));
-
-  if (!damp.x || !damp.z) 
+  #pragma omp for schedule(static)
+  for (int i = 0; i < cfg->r_f_lines; i++)
   {
-    perror("Could not allocate damping");
+    int ix = (int)(cfg->rcv_x[i] * inv_dx_dz) + cfg->nb;
+    int iz = (int)(cfg->rcv_z[i] * inv_dx_dz) + cfg->nb;
+
+    seismogram[t * cfg->r_f_lines + i] = field[iz + ix * cfg->nzz];
+  }
+}
+
+void fd(const config_t *cfg, fields_t *fld, model_t *m)
+{
+  set_boundary(cfg, m);
+
+  init_fields(fld, cfg->nxx, cfg->nzz);
+
+  int seismogram_size = cfg->nt * cfg->r_f_lines;
+  float* seismogram = (float *)calloc((size_t)seismogram_size, sizeof(float));
+  if (!seismogram) 
+  {
+    perror("Could not allocate Seismogram\n");
     exit(EXIT_FAILURE);
   }
 
-  get_damp_z(&damp, p);
-  get_damp_x(&damp, p);
+  damping_t damp = get_damp(cfg);
 
-  return damp;
-}
+  float inv_dx = 1.0f / cfg->dx;
+  float inv_dz = 1.0f / cfg->dz;
+  float inv_dx_dz = inv_dx * inv_dz;
 
-static void allocate_fields(const config_t *p, fields_t *fld)
-{
-  size_t n = p->nxx * p->nzz;
-
-  fld->txx    = (float *)calloc(n, sizeof(float));
-  fld->tzz    = (float *)calloc(n, sizeof(float));
-  fld->txz    = (float *)calloc(n, sizeof(float));
-  fld->vx     = (float *)calloc(n, sizeof(float));
-  fld->vz     = (float *)calloc(n, sizeof(float));
-  fld->calc_p = (float *)calloc(n, sizeof(float));
-}
-
-// TODO
-void register_seismogram() {}
-
-void fd(const config_t *p, model_t *m, fields_t *fld)
-{
-  allocate_fields(p, fld);
-  set_boundary(p, m);
-
-  damping_t damp = get_damp(p);
-
-  int nxx = p->nxx;
-  int nzz = p->nzz;
-
-  float inv_dx = 1.0f / p->dx;
-  float inv_dz = 1.0f / p->dz;
-
-  float dt = p->dt;
-
-  #pragma omp parallel
+  for (size_t i = 0; i < (size_t)cfg->src_f_lines - 1; i++)
   {
-    for (size_t t = 0; t < p->nt; t++) 
+    float sIdx = cfg->src_x[i];
+    float sIdz = cfg->src_z[i];
+
+    #pragma omp parallel
     {
-      #pragma omp single
-      inject_source(p, fld, t);
+      for (size_t t = 0; t < (size_t)cfg->nt; t++)
+      {
+        #pragma omp single
+        inject_source(sIdx, sIdz, inv_dx_dz, cfg, fld, t);
 
-      fd_pressure8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
-      fd_velocity8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
+        fd_pressure8E2T(fld, m, cfg->nxx, cfg->nzz, inv_dx, inv_dz, cfg->dt, &damp);
+        fd_velocity8E2T(fld, m, cfg->nxx, cfg->nzz, inv_dx, inv_dz, cfg->dt, &damp);
 
-      #pragma omp single
-      if (p->snap_bool)
-          get_snapshots(p, fld, t);
-    } 
-  } 
+        register_seismogram(t, cfg, inv_dx_dz, seismogram, fld->txx);
 
-  free(fld->txx); free(fld->tzz); free(fld->txz);
-  free(fld->vx);  free(fld->vz);  free(fld->calc_p);
-  free(damp.x);   free(damp.z);
+        #pragma omp single
+        if (cfg->snap_bool)
+          get_snapshots(cfg, fld, (int)t);
+      }
+    }
+  }
+
+  write2D("data/output/seismogram_txx_1150x648.bin", seismogram, sizeof(float), cfg->nt, cfg->r_f_lines);
+
+  free(seismogram);
+  free(damp.x);
+  free(damp.z);
+  free_fields(fld);
 }
 
