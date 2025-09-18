@@ -54,7 +54,7 @@ int main(void)
   cfg.src_x = malloc(sizeof(float) * cfg.src_f_lines * cfg.src_f_cols);
   cfg.src_z = malloc(sizeof(float) * cfg.src_f_lines * cfg.src_f_cols);
 
-  cfg.r_f_lines = 1151;
+  cfg.r_f_lines = 116;
   cfg.r_f_cols  = 2;
 
   cfg.rcv_x = malloc(sizeof(float) * cfg.r_f_lines * cfg.r_f_cols);
@@ -68,6 +68,7 @@ int main(void)
                 cfg.src_f_lines, cfg.src_f_cols,
                 cfg.src_x, cfg.src_z);
 
+  printf("\n%d ", cfg.r_f_lines);
   fields_t fld = {0};
   fd(&cfg, &fld, &model);
 

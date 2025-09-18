@@ -1,7 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-SAVE_GEOM = False
+SAVE_GEOM = True
+
+OFFSET = 10 # [m]
 
 SRC_DEPTH = 10
 REC_DEPTH = 6
@@ -15,9 +17,9 @@ salt = np.fromfile(
 ).reshape([nz, nx], order='F')
 
 # rec_pos / rec_depth
-rec = np.zeros((nx, 2))
+rec = np.zeros((nx // OFFSET, 2))
 
-rec[:, 0] = np.arange(0, nx)
+rec[:, 0] = np.arange(0, nx, OFFSET)
 rec[:, 1] = REC_DEPTH
 
 # src_pos / src_depth

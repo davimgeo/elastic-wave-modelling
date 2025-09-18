@@ -250,12 +250,12 @@ register_seismogram
   float *field )
 {
   #pragma omp for schedule(static)
-  for (int i = 0; i < cfg->r_f_lines; i++)
+  for (int i = 0; i < cfg->r_f_lines - 1; i++)
   {
     int ix = (int)(cfg->rcv_x[i] * inv_dx_dz) + cfg->nb;
     int iz = (int)(cfg->rcv_z[i] * inv_dx_dz) + cfg->nb;
 
-    seismogram[t * cfg->r_f_lines + i] = field[iz + ix * cfg->nzz];
+    seismogram[t + i * cfg->nt] = field[iz + ix * cfg->nzz];
   }
 }
 
@@ -279,7 +279,7 @@ void fd(const config_t *cfg, fields_t *fld, model_t *m)
   float inv_dz = 1.0f / cfg->dz;
   float inv_dx_dz = inv_dx * inv_dz;
 
-  for (size_t i = 0; i < (size_t)cfg->src_f_lines - 1; i++)
+  for (size_t i = 0; i < cfg->src_f_lines - 1; i++)
   {
     float sIdx = cfg->src_x[i];
     float sIdz = cfg->src_z[i];
@@ -294,7 +294,7 @@ void fd(const config_t *cfg, fields_t *fld, model_t *m)
         fd_pressure8E2T(fld, m, cfg->nxx, cfg->nzz, inv_dx, inv_dz, cfg->dt, &damp);
         fd_velocity8E2T(fld, m, cfg->nxx, cfg->nzz, inv_dx, inv_dz, cfg->dt, &damp);
 
-        register_seismogram(t, cfg, inv_dx_dz, seismogram, fld->txx);
+        register_seismogram(t, cfg, inv_dx_dz, seismogram, fld->vx);
 
         #pragma omp single
         if (cfg->snap_bool)
@@ -303,7 +303,7 @@ void fd(const config_t *cfg, fields_t *fld, model_t *m)
     }
   }
 
-  write2D("data/output/seismogram_txx_1150x648.bin", seismogram, sizeof(float), cfg->nt, cfg->r_f_lines);
+  write2D("data/output/seismogram_vx_1150x648.bin", seismogram, sizeof(float), cfg->nt, cfg->r_f_lines);
 
   free(seismogram);
   free(damp.x);

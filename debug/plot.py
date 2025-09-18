@@ -50,19 +50,20 @@ pSnapshots, vxSnapshots, vzSnapshots = getSnapshotNames(PATH)
 
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
 
-ani = FuncAnimation(fig, update, frames=len(vxSnapshots), blit=False, interval=100)
+#ani = FuncAnimation(fig, update, frames=len(vxSnapshots), blit=False, interval=100)
 # ani.save("animation.mp4", writer="ffmpeg", fps=20)
-plt.show()
+#plt.show()
 
 nt = 5001
-nrec = 1151;
+nrec = 116;
 
 seismogram = np.fromfile(
-    "data/output/seismogram_vx_1150x648.bin", dtype=np.float32, count=nt*nrec
+    "data/output/seismogram_txx_1150x648.bin", dtype=np.float32, count=nt*nrec
 ).reshape([nt, nrec], order='F')
 
 scale = 0.8*np.std(seismogram)
-plt.imshow(seismogram, cmap="Greys", vmin=-scale, vmax=scale)
+plt.imshow(seismogram, cmap="Greys", aspect="auto", vmin=-scale, vmax=scale)
+plt.tight_layout()
 
 plt.show()
 
