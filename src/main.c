@@ -43,9 +43,13 @@ int main(void)
 
   model_t m;
 
-  m.vp  = read_f32_bin_model(cfg.vp_path,  cfg.nx, cfg.nz);
-  m.vs  = read_f32_bin_model(cfg.vs_path,  cfg.nx, cfg.nz);
-  m.rho = read_f32_bin_model(cfg.rho_path, cfg.nx, cfg.nz);
+  m.vp  = malloc(sizeof(float) * cfg.nx * cfg.nz);
+  m.vs  = malloc(sizeof(float) * cfg.nx * cfg.nz);
+  m.rho = malloc(sizeof(float) * cfg.nx * cfg.nz);
+
+  read2D(cfg.vp_path, m.vp,  sizeof(float), cfg.nx, cfg.nz);
+  read2D(cfg.vs_path, m.vs,  sizeof(float), cfg.nx, cfg.nz);
+  read2D(cfg.rho_path, m.rho, sizeof(float), cfg.nx, cfg.nz);
 
   fields_t fld = {0};
 

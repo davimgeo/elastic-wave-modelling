@@ -1,4 +1,4 @@
-CFLAGS = -std=c99 -O3 -march=native -Wall -fopenmp -mavx2 -mfma
+CFLAGS = -std=c99 -O3 -g -march=native -Wall -fopenmp -mavx2 -mfma
 
 
 SRCS = src/main.c src/bin.c src/wavelet.c src/fd.c 
