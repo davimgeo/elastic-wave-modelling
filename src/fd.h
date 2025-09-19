@@ -4,6 +4,16 @@
 #include "par.h"
 
 typedef struct 
+{ 
+  float *txx;
+  float *tzz;
+  float *txz;
+  float *vx;
+  float *vz;
+  float *calc_p;
+} fields_t;
+
+typedef struct 
 {
   float *x, *z;
 } damping_t;

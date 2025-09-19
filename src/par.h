@@ -3,25 +3,29 @@
 
 #include <stdio.h>
 
-typedef struct {
-  /* model parameters */
+typedef struct
+{
   char  *vp_path, *vs_path, *rho_path;
-
   int    nx, nz, nb;
   float  dx, dz;
-
   float  factor;
   int    nxx, nzz;
 
-  /* snapshot parameters */
   int snap_bool;
-  int  snap_num;
-  int  snap_ratio;
+  int snap_num;
+  int snap_ratio;
 
-  /* geometry parameters */
-  int sIdx, sIdz;
+  int src_f_lines;
+  int src_f_cols;
 
-  /* wavelet parameters */
+  float *src_x;
+  float *src_z;
+  int r_f_lines;
+  int r_f_cols;
+
+  float *rcv_x; 
+  float *rcv_z;
+
   int    nt;
   float  dt;
   float  fmax;
@@ -29,20 +33,12 @@ typedef struct {
 
 } config_t;
 
-typedef struct {
-  float *restrict vp;
-  float *restrict vs;
-  float *restrict rho;
+typedef struct 
+{
+  float *vp;
+  float *vs;
+  float *rho;
 } model_t;
-
-typedef struct { 
-  float *restrict txx;
-  float *restrict tzz;
-  float *restrict txz;
-  float *restrict vx;
-  float *restrict vz;
-  float *restrict calc_p;
-} fields_t;
 
 #endif /* PAR_H */
 

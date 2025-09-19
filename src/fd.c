@@ -258,12 +258,21 @@ fd_pressure8E2T
   }
 }
 
-void static inject_source(const config_t *p, fields_t *fld, size_t t)
+static void inject_source
+( float              sIdx_f,
+  float              sIdz_f,
+  float              inv_dx_dz,
+  const config_t    *cfg,
+  fields_t          *fld,
+  size_t             t )
 {
-  int s_idx = (p->sIdz + p->nb) + (p->sIdx + p->nb) * p->nzz;
+  int sIdx = (int)sIdx_f;
+  int sIdz = (int)sIdz_f;
 
-  fld->txx[s_idx] += p->wavelet[t] / (p->dx * p->dz);
-  fld->tzz[s_idx] += p->wavelet[t] / (p->dx * p->dz);
+  int s_idx = (sIdz + cfg->nb) + (sIdx + cfg->nb) * cfg->nzz;
+
+  fld->txx[s_idx] += cfg->wavelet[t] * inv_dx_dz;
+  fld->tzz[s_idx] += cfg->wavelet[t] * inv_dx_dz;
 }
 
 static void get_damp_x(damping_t *damp, const config_t *p)
@@ -341,13 +350,56 @@ static void allocate_fields(const config_t *p, fields_t *fld)
   fld->calc_p = (float *)calloc(n, sizeof(float));
 }
 
-// TODO
-void register_seismogram() {}
+static void free_fields(fields_t *fld)
+{
+  free(fld->txx);
+  free(fld->tzz);
+  free(fld->txz);
+  free(fld->vx);
+  free(fld->vz);
+  free(fld->calc_p);
+}
+
+static void
+register_seismogram
+( int t,
+  const config_t *p,
+  float  inv_dx_dz,
+  float *seismogram,
+  float *field )
+{
+
+  #pragma omp for schedule(static) nowait
+  for (int i = 0; i < p->r_f_lines - 1; i++)
+  {
+    // int ix = (int)(p->rcv_x[i] * inv_dx_dz) + p->nb;
+    // int iz = (int)(p->rcv_z[i] * inv_dx_dz) + p->nb;
+    int ix = (int)p->rcv_x[i] + p->nb;
+    int iz = (int)p->rcv_z[i] + p->nb;
+
+    seismogram[t + i * p->nt] = field[iz + ix * p->nzz];
+  }
+}
 
 void fd(const config_t *p, model_t *m, fields_t *fld)
 {
   allocate_fields(p, fld);
   set_boundary(p, m);
+
+  write2D(
+      "data/output/vp.bin", 
+      m->vp, 
+      sizeof(float), 
+      p->nxx, p->nzz
+    );
+
+  int seismogram_size = p->nt * p->r_f_lines;
+  float* seismogram = (float *)calloc((size_t)seismogram_size, sizeof(float));
+  if (!seismogram) 
+  {
+    perror("Could not allocate Seismogram\n");
+    exit(EXIT_FAILURE);
+  }
 
   damping_t damp = get_damp(p);
 
@@ -356,27 +408,44 @@ void fd(const config_t *p, model_t *m, fields_t *fld)
 
   float inv_dx = 1.0f / p->dx;
   float inv_dz = 1.0f / p->dz;
+  float inv_dx_dz = inv_dx * inv_dz;
 
   float dt = p->dt;
 
   #pragma omp parallel
   {
-    for (size_t t = 0; t < p->nt; t++) 
+    for (size_t i = 0; i < p->src_f_lines - 1; i++)
     {
-      #pragma omp single
-      inject_source(p, fld, t);
+      float sIdx = p->src_x[i];
+      float sIdz = p->src_z[i];
 
-      fd_pressure8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
-      fd_velocity8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
+      for (size_t t = 0; t < p->nt; t++) 
+      {
+        #pragma omp single
+        inject_source(sIdx, sIdz, inv_dx_dz, p, fld, t);
 
-      #pragma omp single
-      if (p->snap_bool)
-          get_snapshots(p, fld, t);
-    } 
-  } 
+        fd_pressure8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
+        fd_velocity8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
 
-  free(fld->txx); free(fld->tzz); free(fld->txz);
-  free(fld->vx);  free(fld->vz);  free(fld->calc_p);
-  free(damp.x);   free(damp.z);
+        register_seismogram(t, p, inv_dx_dz, seismogram, fld->calc_p);
+
+        #pragma omp single
+        if (p->snap_bool)
+            get_snapshots(p, fld, t);
+      } 
+    }
+  }
+
+  write2D(
+      "data/output/seismogram_txx_1150x648.bin", 
+      seismogram, 
+      sizeof(float), 
+      p->nt, p->r_f_lines
+    );
+  
+  free(seismogram);
+  free(damp.x);
+  free(damp.z);
+  free_fields(fld);
 }
 
