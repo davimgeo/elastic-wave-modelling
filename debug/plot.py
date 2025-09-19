@@ -51,20 +51,31 @@ pSnapshots, vxSnapshots, vzSnapshots = getSnapshotNames(PATH)
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
 
 ani = FuncAnimation(fig, update, frames=len(vxSnapshots), blit=False, interval=100)
-ani.save("animation.mp4", writer="ffmpeg", fps=20)
+#ani.save("animation.mp4", writer="ffmpeg", fps=20)
 plt.show()
 
 nt = 5001
-nrec = 116;
+nrec = 172;
 
 seismogram = np.fromfile(
     "data/output/seismogram_txx_1150x648.bin", dtype=np.float32, count=nt*nrec
 ).reshape([nt, nrec], order='F')
 
-scale = 0.8*np.std(seismogram)
-plt.imshow(seismogram, cmap="Greys", aspect="auto", vmin=-scale, vmax=scale)
-plt.tight_layout()
+perc = 99
 
+scale_min = np.percentile(seismogram, 100-perc)
+scale_max = np.percentile(seismogram, perc)
+
+TRACE = 80
+
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 8), sharey=True)
+
+ax[0].imshow(seismogram, cmap="Greys", aspect="auto", vmin=scale_min, vmax=scale_max)
+ax[0].plot(TRACE * np.ones(nt), np.arange(nt), 'r--')
+
+ax[1].plot(seismogram[:, TRACE], np.arange(nt))
+
+plt.tight_layout()
 plt.show()
 
 

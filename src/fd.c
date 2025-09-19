@@ -78,24 +78,10 @@ static void set_boundary(const config_t *p, model_t *m)
   free(m->rho); m->rho = rho_ext;
 }
 
-static void generate_p(const fields_t *fld, int nxx, int nzz)
-{
-  for (int j = 0; j < nxx; j++) 
-  {
-    for (int i = 0; i < nzz; i++) 
-    {
-      fld->calc_p[i + j * nzz] =
-        0.5f * (fld->txx[i + j * nzz] + fld->tzz[i + j * nzz]);
-    }
-  }
-}
-
 void get_snapshots(const config_t *p, const fields_t *fld, int time_step)
 {
   if (!(time_step % p->snap_ratio)) 
   {
-    generate_p(fld, p->nxx, p->nzz);
-
     const char *filenames[] = {
       "p_%dx%d_tid_%d.bin",
       "vx_%dx%d_tid_%d.bin",
@@ -139,7 +125,7 @@ fd_velocity8E2T
 
   const float *restrict rho = m->rho;
 
-  #pragma omp for schedule(static) nowait
+  #pragma omp parallel for schedule(static)
   for (int j = 4; j < nxx - 4; j++)
   {
     for (int i = 4; i < nzz - 4; i++)
@@ -194,6 +180,7 @@ fd_pressure8E2T
 {
   float *restrict txx = fld->txx;
   float *restrict tzz = fld->tzz;
+  float *restrict calc_p = fld->calc_p;
   float *restrict txz = fld->txz;
   float *restrict vx  = fld->vx;
   float *restrict vz  = fld->vz;
@@ -202,7 +189,7 @@ fd_pressure8E2T
   const float *restrict vs  = m->vs;
   const float *restrict rho = m->rho;
 
-  #pragma omp for schedule(static)
+  #pragma omp parallel for schedule(static)
   for (int j = 4; j < nxx - 4; j++)
   {
     for (int i = 4; i < nzz - 4; i++)
@@ -254,6 +241,8 @@ fd_pressure8E2T
       txx[i + j * nzz] *= (damp->x[j] * damp->z[i]);
       tzz[i + j * nzz] *= (damp->x[j] * damp->z[i]);
       txz[i + j * nzz] *= (damp->x[j] * damp->z[i]);
+
+      calc_p[i + j * nzz] = 0.5f * (fld->txx[i + j * nzz] + fld->tzz[i + j * nzz]);
     }
   }
 }
@@ -368,16 +357,14 @@ register_seismogram
   float *seismogram,
   float *field )
 {
-
-  #pragma omp for schedule(static) nowait
-  for (int i = 0; i < p->r_f_lines - 1; i++)
+  for (int i = 0; i < p->r_f_lines; i++)
   {
-    // int ix = (int)(p->rcv_x[i] * inv_dx_dz) + p->nb;
-    // int iz = (int)(p->rcv_z[i] * inv_dx_dz) + p->nb;
     int ix = (int)p->rcv_x[i] + p->nb;
     int iz = (int)p->rcv_z[i] + p->nb;
 
-    seismogram[t + i * p->nt] = field[iz + ix * p->nzz];
+    int idx = iz + ix * p->nzz;
+
+    seismogram[t + i * p->nt] = field[idx];
   }
 }
 
@@ -412,28 +399,23 @@ void fd(const config_t *p, model_t *m, fields_t *fld)
 
   float dt = p->dt;
 
-  #pragma omp parallel
+  for (size_t i = 0; i < p->src_f_lines - 1; i++)
   {
-    for (size_t i = 0; i < p->src_f_lines - 1; i++)
+    float sIdx = p->src_x[i];
+    float sIdz = p->src_z[i];
+
+    for (size_t t = 0; t < p->nt; t++) 
     {
-      float sIdx = p->src_x[i];
-      float sIdz = p->src_z[i];
+      inject_source(sIdx, sIdz, inv_dx_dz, p, fld, t);
 
-      for (size_t t = 0; t < p->nt; t++) 
-      {
-        #pragma omp single
-        inject_source(sIdx, sIdz, inv_dx_dz, p, fld, t);
+      fd_pressure8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
+      fd_velocity8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
 
-        fd_pressure8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
-        fd_velocity8E2T(fld, m, nxx, nzz, inv_dx, inv_dz, dt, &damp);
+      if (p->snap_bool)
+          get_snapshots(p, fld, t);
 
-        register_seismogram(t, p, inv_dx_dz, seismogram, fld->calc_p);
-
-        #pragma omp single
-        if (p->snap_bool)
-            get_snapshots(p, fld, t);
-      } 
-    }
+      register_seismogram(t, p, inv_dx_dz, seismogram, fld->calc_p);
+    } 
   }
 
   write2D(

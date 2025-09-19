@@ -54,7 +54,7 @@ int main(void)
   cfg.src_x = malloc(sizeof(float) * cfg.src_f_lines * cfg.src_f_cols);
   cfg.src_z = malloc(sizeof(float) * cfg.src_f_lines * cfg.src_f_cols);
 
-  cfg.r_f_lines = 116;
+  cfg.r_f_lines = 172;
   cfg.r_f_cols  = 2;
 
   cfg.rcv_x = malloc(sizeof(float) * cfg.r_f_lines * cfg.r_f_cols);
