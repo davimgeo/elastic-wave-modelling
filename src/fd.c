@@ -18,6 +18,8 @@
 
 #define FREE(ptr) do { free(ptr); ptr = NULL; } while(0)
 
+#define MIN(a, b) ((a < b) ? (a) : (b))
+
 static void set_boundary(const config_t *p, model_t *m)
 {
   int nb  = p->nb;
@@ -164,7 +166,7 @@ void get_snapshots(const config_t *p, const fields_t *fld, int time_step)
   }
 }
 
-static void allocate_fields(const config_t *p, fields_t *fld)
+void fd(const config_t *p, model_t *m, fields_t *fld)
 {
   size_t n = p->nxx * p->nzz;
 
@@ -174,14 +176,10 @@ static void allocate_fields(const config_t *p, fields_t *fld)
   fld->vx     = (float *)calloc(n, sizeof(float));
   fld->vz     = (float *)calloc(n, sizeof(float));
   fld->calc_p = (float *)calloc(n, sizeof(float));
-}
 
-void fd(const config_t *p, model_t *m, fields_t *fld)
-{
-  allocate_fields(p, fld);
   set_boundary(p, m);
 
-  write2D("data/output/vp.bin", m->vp, sizeof(float), p->nxx, p->nzz);
+  //write2D("data/output/vp.bin", m->vp, sizeof(float), p->nxx, p->nzz);
 
   int seismogram_size = p->nt * p->r_f_lines;
   float* seismogram = (float *)calloc((size_t)seismogram_size, sizeof(float));
@@ -205,15 +203,11 @@ void fd(const config_t *p, model_t *m, fields_t *fld)
 
     for (size_t t = 0; t < p->nt; t++)
     {
-      /*
-       * inject source
-       */
+      // inject source
       fld->txx[s_idx] += p->wavelet[t] * inv_dx_dz;
       fld->tzz[s_idx] += p->wavelet[t] * inv_dx_dz;
 
-      /*
-       * pressure update
-       */
+      // pressure update
       #pragma omp parallel for schedule(static)
       for (int j = 4; j < nxx - 4; j++)
       {
@@ -272,9 +266,7 @@ void fd(const config_t *p, model_t *m, fields_t *fld)
         }
       }
 
-      /*
-       * velocity update
-       */
+      // velocity update
       #pragma omp parallel for schedule(static)
       for (int j = 4; j < nxx - 4; j++)
       {
@@ -318,9 +310,7 @@ void fd(const config_t *p, model_t *m, fields_t *fld)
 
       if (p->snap_bool) { get_snapshots(p, fld, t); }
      
-      /*
-       * register seismogram
-       */
+      // register seismogram
       #pragma omp parallel for schedule(static)
       for (int i = 0; i < p->r_f_lines; i++)
       {
@@ -349,5 +339,186 @@ void fd(const config_t *p, model_t *m, fields_t *fld)
   FREE(fld->calc_p);
 }
 
+#define TILE_I 64
+#define TILE_J 64
 
+void fd_simd(const config_t *p, model_t *m, fields_t *fld)
+{
+  size_t n = p->nxx * p->nzz;
+
+  fld->txx    = (float *)calloc(n, sizeof(float));
+  fld->tzz    = (float *)calloc(n, sizeof(float));
+  fld->txz    = (float *)calloc(n, sizeof(float));
+  fld->vx     = (float *)calloc(n, sizeof(float));
+  fld->vz     = (float *)calloc(n, sizeof(float));
+  fld->calc_p = (float *)calloc(n, sizeof(float));
+
+  set_boundary(p, m);
+
+  int seismogram_size = p->nt * p->r_f_lines;
+  float* seismogram = (float *)calloc((size_t)seismogram_size, sizeof(float));
+  if (!seismogram) { perror("Could not allocate Seismogram\n"); exit(EXIT_FAILURE); }
+
+  damping_t damp = get_damp(p);
+
+  int nxx = p->nxx;
+  int nzz = p->nzz;
+  float inv_dx = 1.0f / p->dx;
+  float inv_dz = 1.0f / p->dz;
+  float inv_dx_dz = inv_dx * inv_dz;
+  float dt = p->dt;
+
+  for (size_t s = 0; s < p->src_f_lines - 1; s++)
+  {
+    int sIdx = p->src_x[s];
+    int sIdz = p->src_z[s];
+    int s_idx = (sIdz + p->nb) + (sIdx + p->nb) * p->nzz;
+
+    for (size_t t = 0; t < p->nt; t++)
+    {
+      // inject source
+      fld->txx[s_idx] += p->wavelet[t] * inv_dx_dz;
+      fld->tzz[s_idx] += p->wavelet[t] * inv_dx_dz;
+
+      // pressure update (cache tiled)
+      #pragma omp parallel for schedule(static)
+      for (int jj = 4; jj < nxx - 4; jj += TILE_J)
+      {
+        for (int ii = 4; ii < nzz - 4; ii += TILE_I)
+        {
+          for (int j = jj; j < MIN(jj + TILE_J, nxx - 4); j++)
+          {
+            for (int i_ = ii; i_ < MIN(ii + TILE_I, nzz - 4); i_++)
+            {
+              float dvx_dx =
+                (FDM8E1 * (fld->vx[i_ + (j - 3) * nzz] - fld->vx[i_ + (j + 4) * nzz]) +
+                 FDM8E2 * (fld->vx[i_ + (j + 3) * nzz] - fld->vx[i_ + (j - 2) * nzz]) +
+                 FDM8E3 * (fld->vx[i_ + (j - 1) * nzz] - fld->vx[i_ + (j + 2) * nzz]) +
+                 FDM8E4 * (fld->vx[i_ + (j + 1) * nzz] - fld->vx[i_ + j * nzz])) * inv_dx;
+
+              float dvz_dz =
+                (FDM8E1 * (fld->vz[(i_ - 3) + j * nzz] - fld->vz[(i_ + 4) + j * nzz]) +
+                 FDM8E2 * (fld->vz[(i_ + 3) + j * nzz] - fld->vz[(i_ - 2) + j * nzz]) +
+                 FDM8E3 * (fld->vz[(i_ - 1) + j * nzz] - fld->vz[(i_ + 2) + j * nzz]) +
+                 FDM8E4 * (fld->vz[(i_ + 1) + j * nzz] - fld->vz[i_ + j * nzz])) * inv_dz;
+
+              float dvx_dz =
+                (FDM8E1 * (fld->vx[(i_ - 4) + j * nzz] - fld->vx[(i_ + 3) + j * nzz]) +
+                 FDM8E2 * (fld->vx[(i_ + 2) + j * nzz] - fld->vx[(i_ - 3) + j * nzz]) +
+                 FDM8E3 * (fld->vx[(i_ - 2) + j * nzz] - fld->vx[(i_ + 1) + j * nzz]) +
+                 FDM8E4 * (fld->vx[i_ + j * nzz] - fld->vx[(i_ - 1) + j * nzz])) * inv_dz;
+
+              float dvz_dx =
+                (FDM8E1 * (fld->vz[i_ + (j - 4) * nzz] - fld->vz[i_ + (j + 3) * nzz]) +
+                 FDM8E2 * (fld->vz[i_ + (j + 2) * nzz] - fld->vz[i_ + (j - 3) * nzz]) +
+                 FDM8E3 * (fld->vz[i_ + (j - 2) * nzz] - fld->vz[i_ + (j + 1) * nzz]) +
+                 FDM8E4 * (fld->vz[i_ + j * nzz] - fld->vz[i_ + (j - 1) * nzz])) * inv_dx;
+
+              float vp2 = m->vp[i_ + j * nzz] * m->vp[i_ + j * nzz];
+              float vs2 = m->vs[i_ + j * nzz] * m->vs[i_ + j * nzz];
+              float vs2_xp = m->vs[(i_ + 1) + j * nzz] * m->vs[(i_ + 1) + j * nzz];
+              float vs2_zp = m->vs[i_ + (j + 1) * nzz] * m->vs[i_ + (j + 1) * nzz];
+              float vs2_xp_zp = m->vs[(i_ + 1) + (j + 1) * nzz] * m->vs[(i_ + 1) + (j + 1) * nzz];
+
+              float lamb = m->rho[i_ + j * nzz] * (vp2 - 2.0f * vs2);
+              float mi   = m->rho[i_ + j * nzz] * vs2;
+
+              float mi1 = m->rho[i_ + j * nzz] * vs2;
+              float mi2 = m->rho[(i_ + 1) + j * nzz] * vs2_xp;
+              float mi3 = m->rho[i_ + (j + 1) * nzz] * vs2_zp;
+              float mi4 = m->rho[(i_ + 1) + (j + 1) * nzz] * vs2_xp_zp;
+              float mi_avg = 4.0f / ((1.0f / mi1) + (1.0f / mi2) + (1.0f / mi3) + (1.0f / mi4));
+
+              fld->txx[i_ + j * nzz] += dt * ((lamb + 2.0f * mi) * dvx_dx + lamb * dvz_dz);
+              fld->tzz[i_ + j * nzz] += dt * ((lamb + 2.0f * mi) * dvz_dz + lamb * dvx_dx);
+              fld->txz[i_ + j * nzz] += dt * mi_avg * (dvx_dz + dvz_dx);
+
+              float damp_prod = damp.x[j] * damp.z[i_];
+              fld->txx[i_ + j * nzz] *= damp_prod;
+              fld->tzz[i_ + j * nzz] *= damp_prod;
+              fld->txz[i_ + j * nzz] *= damp_prod;
+
+              fld->calc_p[i_ + j * nzz] = 0.5f *
+                (fld->txx[i_ + j * nzz] + fld->tzz[i_ + j * nzz]);
+            }
+          }
+        }
+      }
+
+      // velocity update (cache tiled)
+      #pragma omp parallel for schedule(static)
+      for (int jj = 4; jj < nxx - 4; jj += TILE_J)
+      {
+        for (int ii = 4; ii < nzz - 4; ii += TILE_I)
+        {
+          for (int j = jj; j < MIN(jj + TILE_J, nxx - 4); j++)
+          {
+            for (int i_ = ii; i_ < MIN(ii + TILE_I, nzz - 4); i_++)
+            {
+              float dtxx_dx =
+                (FDM8E1 * (fld->txx[i_ + (j - 4) * nzz] - fld->txx[i_ + (j + 3) * nzz]) +
+                 FDM8E2 * (fld->txx[i_ + (j + 2) * nzz] - fld->txx[i_ + (j - 3) * nzz]) +
+                 FDM8E3 * (fld->txx[i_ + (j - 2) * nzz] - fld->txx[i_ + (j + 1) * nzz]) +
+                 FDM8E4 * (fld->txx[i_ + j * nzz] - fld->txx[i_ + (j - 1) * nzz])) * inv_dx;
+
+              float dtxz_dz =
+                (FDM8E1 * (fld->txz[(i_ - 3) + j * nzz] - fld->txz[(i_ + 4) + j * nzz]) +
+                 FDM8E2 * (fld->txz[(i_ + 3) + j * nzz] - fld->txz[(i_ - 2) + j * nzz]) +
+                 FDM8E3 * (fld->txz[(i_ - 1) + j * nzz] - fld->txz[(i_ + 2) + j * nzz]) +
+                 FDM8E4 * (fld->txz[(i_ + 1) + j * nzz] - fld->txz[i_ + j * nzz])) * inv_dz;
+
+              float dtxz_dx =
+                (FDM8E1 * (fld->txz[i_ + (j - 3) * nzz] - fld->txz[i_ + (j + 4) * nzz]) +
+                 FDM8E2 * (fld->txz[i_ + (j + 3) * nzz] - fld->txz[i_ + (j - 2) * nzz]) +
+                 FDM8E3 * (fld->txz[i_ + (j - 1) * nzz] - fld->txz[i_ + (j + 2) * nzz]) +
+                 FDM8E4 * (fld->txz[i_ + (j + 1) * nzz] - fld->txz[i_ + j * nzz])) * inv_dx;
+
+              float dtzz_dz =
+                (FDM8E1 * (fld->tzz[(i_ - 4) + j * nzz] - fld->tzz[(i_ + 3) + j * nzz]) +
+                 FDM8E2 * (fld->tzz[(i_ + 2) + j * nzz] - fld->tzz[(i_ - 3) + j * nzz]) +
+                 FDM8E3 * (fld->tzz[(i_ - 2) + j * nzz] - fld->tzz[(i_ + 1) + j * nzz]) +
+                 FDM8E4 * (fld->tzz[i_ + j * nzz] - fld->tzz[(i_ - 1) + j * nzz])) * inv_dz;
+
+              float rho_inv  = 1.0f / (0.5f * (m->rho[i_ + j * nzz] + m->rho[i_ + (j + 1) * nzz]));
+              float rho_inv2 = 1.0f / (0.5f * (m->rho[i_ + j * nzz] + m->rho[(i_ + 1) + j * nzz]));
+
+              fld->vx[i_ + j * nzz] += dt * rho_inv  * (dtxx_dx + dtxz_dz);
+              fld->vz[i_ + j * nzz] += dt * rho_inv2 * (dtxz_dx + dtzz_dz);
+
+              float damp_prod = damp.x[j] * damp.z[i_];
+              fld->vx[i_ + j * nzz] *= damp_prod;
+              fld->vz[i_ + j * nzz] *= damp_prod;
+            }
+          }
+        }
+      }
+
+      if (p->snap_bool) { get_snapshots(p, fld, t); }
+
+      // register seismogram
+      #pragma omp parallel for schedule(static)
+      for (int i = 0; i < p->r_f_lines; i++)
+      {
+        int ix = (int)p->rcv_x[i] + p->nb;
+        int iz = (int)p->rcv_z[i] + p->nb;
+        int idx = iz + ix * p->nzz;
+        seismogram[t + i * p->nt] = fld->calc_p[idx];
+      }
+    }
+  }
+
+  write2D("data/output/seismogram_txx_1150x648.bin",
+          seismogram, sizeof(float), p->nt, p->r_f_lines);
+
+  FREE(seismogram);
+  FREE(damp.x);
+  FREE(damp.z);
+
+  FREE(fld->txx);
+  FREE(fld->tzz);
+  FREE(fld->txz);
+  FREE(fld->vx);
+  FREE(fld->vz);
+  FREE(fld->calc_p);
+}
 
