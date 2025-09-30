@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <omp.h>
+#include <immintrin.h>
 
 #include "bin.h"
 #include "fd.h"
@@ -211,58 +212,58 @@ void fd(const config_t *p, model_t *m, fields_t *fld)
       #pragma omp parallel for schedule(static)
       for (int j = 4; j < nxx - 4; j++)
       {
-        for (int i_ = 4; i_ < nzz - 4; i_++)
+        for (int i = 4; i < nzz - 4; i++)
         {
           float dvx_dx =
-            (FDM8E1 * (fld->vx[i_ + (j - 3) * nzz] - fld->vx[i_ + (j + 4) * nzz]) +
-             FDM8E2 * (fld->vx[i_ + (j + 3) * nzz] - fld->vx[i_ + (j - 2) * nzz]) +
-             FDM8E3 * (fld->vx[i_ + (j - 1) * nzz] - fld->vx[i_ + (j + 2) * nzz]) +
-             FDM8E4 * (fld->vx[i_ + (j + 1) * nzz] - fld->vx[i_ + j * nzz])) * inv_dx;
+            (FDM8E1 * (fld->vx[i + (j - 3) * nzz] - fld->vx[i + (j + 4) * nzz]) +
+             FDM8E2 * (fld->vx[i + (j + 3) * nzz] - fld->vx[i + (j - 2) * nzz]) +
+             FDM8E3 * (fld->vx[i + (j - 1) * nzz] - fld->vx[i + (j + 2) * nzz]) +
+             FDM8E4 * (fld->vx[i + (j + 1) * nzz] - fld->vx[i + j * nzz])) * inv_dx;
 
           float dvz_dz =
-            (FDM8E1 * (fld->vz[(i_ - 3) + j * nzz] - fld->vz[(i_ + 4) + j * nzz]) +
-             FDM8E2 * (fld->vz[(i_ + 3) + j * nzz] - fld->vz[(i_ - 2) + j * nzz]) +
-             FDM8E3 * (fld->vz[(i_ - 1) + j * nzz] - fld->vz[(i_ + 2) + j * nzz]) +
-             FDM8E4 * (fld->vz[(i_ + 1) + j * nzz] - fld->vz[i_ + j * nzz])) * inv_dz;
+            (FDM8E1 * (fld->vz[(i - 3) + j * nzz] - fld->vz[(i + 4) + j * nzz]) +
+             FDM8E2 * (fld->vz[(i + 3) + j * nzz] - fld->vz[(i - 2) + j * nzz]) +
+             FDM8E3 * (fld->vz[(i - 1) + j * nzz] - fld->vz[(i + 2) + j * nzz]) +
+             FDM8E4 * (fld->vz[(i + 1) + j * nzz] - fld->vz[i + j * nzz])) * inv_dz;
 
           float dvx_dz =
-            (FDM8E1 * (fld->vx[(i_ - 4) + j * nzz] - fld->vx[(i_ + 3) + j * nzz]) +
-             FDM8E2 * (fld->vx[(i_ + 2) + j * nzz] - fld->vx[(i_ - 3) + j * nzz]) +
-             FDM8E3 * (fld->vx[(i_ - 2) + j * nzz] - fld->vx[(i_ + 1) + j * nzz]) +
-             FDM8E4 * (fld->vx[i_ + j * nzz] - fld->vx[(i_ - 1) + j * nzz])) * inv_dz;
+            (FDM8E1 * (fld->vx[(i - 4) + j * nzz] - fld->vx[(i + 3) + j * nzz]) +
+             FDM8E2 * (fld->vx[(i + 2) + j * nzz] - fld->vx[(i - 3) + j * nzz]) +
+             FDM8E3 * (fld->vx[(i - 2) + j * nzz] - fld->vx[(i + 1) + j * nzz]) +
+             FDM8E4 * (fld->vx[i + j * nzz] - fld->vx[(i - 1) + j * nzz])) * inv_dz;
 
           float dvz_dx =
-            (FDM8E1 * (fld->vz[i_ + (j - 4) * nzz] - fld->vz[i_ + (j + 3) * nzz]) +
-             FDM8E2 * (fld->vz[i_ + (j + 2) * nzz] - fld->vz[i_ + (j - 3) * nzz]) +
-             FDM8E3 * (fld->vz[i_ + (j - 2) * nzz] - fld->vz[i_ + (j + 1) * nzz]) +
-             FDM8E4 * (fld->vz[i_ + j * nzz] - fld->vz[i_ + (j - 1) * nzz])) * inv_dx;
+            (FDM8E1 * (fld->vz[i + (j - 4) * nzz] - fld->vz[i + (j + 3) * nzz]) +
+             FDM8E2 * (fld->vz[i + (j + 2) * nzz] - fld->vz[i + (j - 3) * nzz]) +
+             FDM8E3 * (fld->vz[i + (j - 2) * nzz] - fld->vz[i + (j + 1) * nzz]) +
+             FDM8E4 * (fld->vz[i + j * nzz] - fld->vz[i + (j - 1) * nzz])) * inv_dx;
 
-          float vp2 = m->vp[i_ + j * nzz] * m->vp[i_ + j * nzz];
-          float vs2 = m->vs[i_ + j * nzz] * m->vs[i_ + j * nzz];
-          float vs2_xp = m->vs[(i_ + 1) + j * nzz] * m->vs[(i_ + 1) + j * nzz];
-          float vs2_zp = m->vs[i_ + (j + 1) * nzz] * m->vs[i_ + (j + 1) * nzz];
-          float vs2_xp_zp = m->vs[(i_ + 1) + (j + 1) * nzz] * m->vs[(i_ + 1) + (j + 1) * nzz];
+          float vp2 = m->vp[i + j * nzz] * m->vp[i + j * nzz];
+          float vs2 = m->vs[i + j * nzz] * m->vs[i + j * nzz];
+          float vs2_xp = m->vs[(i + 1) + j * nzz] * m->vs[(i + 1) + j * nzz];
+          float vs2_zp = m->vs[i + (j + 1) * nzz] * m->vs[i + (j + 1) * nzz];
+          float vs2_xp_zp = m->vs[(i + 1) + (j + 1) * nzz] * m->vs[(i + 1) + (j + 1) * nzz];
 
-          float lamb = m->rho[i_ + j * nzz] * (vp2 - 2.0f * vs2);
-          float mi   = m->rho[i_ + j * nzz] * vs2;
+          float lamb = m->rho[i + j * nzz] * (vp2 - 2.0f * vs2);
+          float mi   = m->rho[i + j * nzz] * vs2;
 
-          float mi1 = m->rho[i_ + j * nzz] * vs2;
-          float mi2 = m->rho[(i_ + 1) + j * nzz] * vs2_xp;
-          float mi3 = m->rho[i_ + (j + 1) * nzz] * vs2_zp;
-          float mi4 = m->rho[(i_ + 1) + (j + 1) * nzz] * vs2_xp_zp;
+          float mi1 = m->rho[i + j * nzz] * vs2;
+          float mi2 = m->rho[(i + 1) + j * nzz] * vs2_xp;
+          float mi3 = m->rho[i + (j + 1) * nzz] * vs2_zp;
+          float mi4 = m->rho[(i + 1) + (j + 1) * nzz] * vs2_xp_zp;
           float mi_avg = 4.0f / ((1.0f / mi1) + (1.0f / mi2) + (1.0f / mi3) + (1.0f / mi4));
 
-          fld->txx[i_ + j * nzz] += dt * ((lamb + 2.0f * mi) * dvx_dx + lamb * dvz_dz);
-          fld->tzz[i_ + j * nzz] += dt * ((lamb + 2.0f * mi) * dvz_dz + lamb * dvx_dx);
-          fld->txz[i_ + j * nzz] += dt * mi_avg * (dvx_dz + dvz_dx);
+          fld->txx[i + j * nzz] += dt * ((lamb + 2.0f * mi) * dvx_dx + lamb * dvz_dz);
+          fld->tzz[i + j * nzz] += dt * ((lamb + 2.0f * mi) * dvz_dz + lamb * dvx_dx);
+          fld->txz[i + j * nzz] += dt * mi_avg * (dvx_dz + dvz_dx);
 
-          float damp_prod = damp.x[j] * damp.z[i_];
-          fld->txx[i_ + j * nzz] *= damp_prod;
-          fld->tzz[i_ + j * nzz] *= damp_prod;
-          fld->txz[i_ + j * nzz] *= damp_prod;
+          float damp_prod = damp.x[j] * damp.z[i];
+          fld->txx[i + j * nzz] *= damp_prod;
+          fld->tzz[i + j * nzz] *= damp_prod;
+          fld->txz[i + j * nzz] *= damp_prod;
 
-          fld->calc_p[i_ + j * nzz] = 0.5f * 
-            (fld->txx[i_ + j * nzz] + fld->tzz[i_ + j * nzz]);
+          fld->calc_p[i + j * nzz] = 0.5f * 
+            (fld->txx[i + j * nzz] + fld->tzz[i + j * nzz]);
         }
       }
 
@@ -270,41 +271,41 @@ void fd(const config_t *p, model_t *m, fields_t *fld)
       #pragma omp parallel for schedule(static)
       for (int j = 4; j < nxx - 4; j++)
       {
-        for (int i_ = 4; i_ < nzz - 4; i_++)
+        for (int i = 4; i < nzz - 4; i++)
         {
           float dtxx_dx =
-            (FDM8E1 * (fld->txx[i_ + (j - 4) * nzz] - fld->txx[i_ + (j + 3) * nzz]) +
-             FDM8E2 * (fld->txx[i_ + (j + 2) * nzz] - fld->txx[i_ + (j - 3) * nzz]) +
-             FDM8E3 * (fld->txx[i_ + (j - 2) * nzz] - fld->txx[i_ + (j + 1) * nzz]) +
-             FDM8E4 * (fld->txx[i_ + j * nzz] - fld->txx[i_ + (j - 1) * nzz])) * inv_dx;
+            (FDM8E1 * (fld->txx[i + (j - 4) * nzz] - fld->txx[i + (j + 3) * nzz]) +
+             FDM8E2 * (fld->txx[i + (j + 2) * nzz] - fld->txx[i + (j - 3) * nzz]) +
+             FDM8E3 * (fld->txx[i + (j - 2) * nzz] - fld->txx[i + (j + 1) * nzz]) +
+             FDM8E4 * (fld->txx[i + j * nzz] - fld->txx[i + (j - 1) * nzz])) * inv_dx;
 
           float dtxz_dz =
-            (FDM8E1 * (fld->txz[(i_ - 3) + j * nzz] - fld->txz[(i_ + 4) + j * nzz]) +
-             FDM8E2 * (fld->txz[(i_ + 3) + j * nzz] - fld->txz[(i_ - 2) + j * nzz]) +
-             FDM8E3 * (fld->txz[(i_ - 1) + j * nzz] - fld->txz[(i_ + 2) + j * nzz]) +
-             FDM8E4 * (fld->txz[(i_ + 1) + j * nzz] - fld->txz[i_ + j * nzz])) * inv_dz;
+            (FDM8E1 * (fld->txz[(i - 3) + j * nzz] - fld->txz[(i + 4) + j * nzz]) +
+             FDM8E2 * (fld->txz[(i + 3) + j * nzz] - fld->txz[(i - 2) + j * nzz]) +
+             FDM8E3 * (fld->txz[(i - 1) + j * nzz] - fld->txz[(i + 2) + j * nzz]) +
+             FDM8E4 * (fld->txz[(i + 1) + j * nzz] - fld->txz[i + j * nzz])) * inv_dz;
 
           float dtxz_dx =
-            (FDM8E1 * (fld->txz[i_ + (j - 3) * nzz] - fld->txz[i_ + (j + 4) * nzz]) +
-             FDM8E2 * (fld->txz[i_ + (j + 3) * nzz] - fld->txz[i_ + (j - 2) * nzz]) +
-             FDM8E3 * (fld->txz[i_ + (j - 1) * nzz] - fld->txz[i_ + (j + 2) * nzz]) +
-             FDM8E4 * (fld->txz[i_ + (j + 1) * nzz] - fld->txz[i_ + j * nzz])) * inv_dx;
+            (FDM8E1 * (fld->txz[i + (j - 3) * nzz] - fld->txz[i + (j + 4) * nzz]) +
+             FDM8E2 * (fld->txz[i + (j + 3) * nzz] - fld->txz[i + (j - 2) * nzz]) +
+             FDM8E3 * (fld->txz[i + (j - 1) * nzz] - fld->txz[i + (j + 2) * nzz]) +
+             FDM8E4 * (fld->txz[i + (j + 1) * nzz] - fld->txz[i + j * nzz])) * inv_dx;
 
           float dtzz_dz =
-            (FDM8E1 * (fld->tzz[(i_ - 4) + j * nzz] - fld->tzz[(i_ + 3) + j * nzz]) +
-             FDM8E2 * (fld->tzz[(i_ + 2) + j * nzz] - fld->tzz[(i_ - 3) + j * nzz]) +
-             FDM8E3 * (fld->tzz[(i_ - 2) + j * nzz] - fld->tzz[(i_ + 1) + j * nzz]) +
-             FDM8E4 * (fld->tzz[i_ + j * nzz] - fld->tzz[(i_ - 1) + j * nzz])) * inv_dz;
+            (FDM8E1 * (fld->tzz[(i - 4) + j * nzz] - fld->tzz[(i + 3) + j * nzz]) +
+             FDM8E2 * (fld->tzz[(i + 2) + j * nzz] - fld->tzz[(i - 3) + j * nzz]) +
+             FDM8E3 * (fld->tzz[(i - 2) + j * nzz] - fld->tzz[(i + 1) + j * nzz]) +
+             FDM8E4 * (fld->tzz[i + j * nzz] - fld->tzz[(i - 1) + j * nzz])) * inv_dz;
 
-          float rho_inv  = 1.0f / (0.5f * (m->rho[i_ + j * nzz] + m->rho[i_ + (j + 1) * nzz]));
-          float rho_inv2 = 1.0f / (0.5f * (m->rho[i_ + j * nzz] + m->rho[(i_ + 1) + j * nzz]));
+          float rho_inv  = 1.0f / (0.5f * (m->rho[i + j * nzz] + m->rho[i + (j + 1) * nzz]));
+          float rho_inv2 = 1.0f / (0.5f * (m->rho[i + j * nzz] + m->rho[(i + 1) + j * nzz]));
 
-          fld->vx[i_ + j * nzz] += dt * rho_inv  * (dtxx_dx + dtxz_dz);
-          fld->vz[i_ + j * nzz] += dt * rho_inv2 * (dtxz_dx + dtzz_dz);
+          fld->vx[i + j * nzz] += dt * rho_inv  * (dtxx_dx + dtxz_dz);
+          fld->vz[i + j * nzz] += dt * rho_inv2 * (dtxz_dx + dtzz_dz);
 
-          float damp_prod = damp.x[j] * damp.z[i_];
-          fld->vx[i_ + j * nzz] *= damp_prod;
-          fld->vz[i_ + j * nzz] *= damp_prod;
+          float damp_prod = damp.x[j] * damp.z[i];
+          fld->vx[i + j * nzz] *= damp_prod;
+          fld->vz[i + j * nzz] *= damp_prod;
         }
       }
 
@@ -356,8 +357,13 @@ void fd_simd(const config_t *p, model_t *m, fields_t *fld)
   set_boundary(p, m);
 
   int seismogram_size = p->nt * p->r_f_lines;
+
   float* seismogram = (float *)calloc((size_t)seismogram_size, sizeof(float));
-  if (!seismogram) { perror("Could not allocate Seismogram\n"); exit(EXIT_FAILURE); }
+  if (!seismogram) 
+  { 
+    perror("Could not allocate Seismogram\n"); 
+    exit(EXIT_FAILURE); 
+  }
 
   damping_t damp = get_damp(p);
 
@@ -380,114 +386,196 @@ void fd_simd(const config_t *p, model_t *m, fields_t *fld)
       fld->txx[s_idx] += p->wavelet[t] * inv_dx_dz;
       fld->tzz[s_idx] += p->wavelet[t] * inv_dx_dz;
 
-      // pressure update (cache tiled)
-      #pragma omp parallel for schedule(static)
+      // pressure update 
+      #pragma omp parallel for collapse(2)
       for (int jj = 4; jj < nxx - 4; jj += TILE_J)
       {
         for (int ii = 4; ii < nzz - 4; ii += TILE_I)
         {
-          for (int j = jj; j < MIN(jj + TILE_J, nxx - 4); j++)
+          int j_min = MIN(jj + TILE_J, nxx - 4);
+          int i_min = MIN(ii + TILE_I, nzz - 4);
+
+          for (int j = jj; j < j_min; j+=8)
           {
-            for (int i_ = ii; i_ < MIN(ii + TILE_I, nzz - 4); i_++)
+            for (int i = ii; i < i_min; i+=8)
             {
-              float dvx_dx =
-                (FDM8E1 * (fld->vx[i_ + (j - 3) * nzz] - fld->vx[i_ + (j + 4) * nzz]) +
-                 FDM8E2 * (fld->vx[i_ + (j + 3) * nzz] - fld->vx[i_ + (j - 2) * nzz]) +
-                 FDM8E3 * (fld->vx[i_ + (j - 1) * nzz] - fld->vx[i_ + (j + 2) * nzz]) +
-                 FDM8E4 * (fld->vx[i_ + (j + 1) * nzz] - fld->vx[i_ + j * nzz])) * inv_dx;
+              __m256 vx_jm3 = _mm256_loadu_ps(&fld->vx[i + (j - 3) * nzz]);
+              __m256 vx_jp4 = _mm256_loadu_ps(&fld->vx[i + (j + 4) * nzz]);
+              __m256 vx_jp3 = _mm256_loadu_ps(&fld->vx[i + (j + 3) * nzz]);
+              __m256 vx_jm2 = _mm256_loadu_ps(&fld->vx[i + (j - 2) * nzz]);
+              __m256 vx_jm1 = _mm256_loadu_ps(&fld->vx[i + (j - 1) * nzz]);
+              __m256 vx_jp2 = _mm256_loadu_ps(&fld->vx[i + (j + 2) * nzz]);
+              __m256 vx_jp1 = _mm256_loadu_ps(&fld->vx[i + (j + 1) * nzz]);
+              __m256 vx_j   = _mm256_loadu_ps(&fld->vx[i + j * nzz]);
 
-              float dvz_dz =
-                (FDM8E1 * (fld->vz[(i_ - 3) + j * nzz] - fld->vz[(i_ + 4) + j * nzz]) +
-                 FDM8E2 * (fld->vz[(i_ + 3) + j * nzz] - fld->vz[(i_ - 2) + j * nzz]) +
-                 FDM8E3 * (fld->vz[(i_ - 1) + j * nzz] - fld->vz[(i_ + 2) + j * nzz]) +
-                 FDM8E4 * (fld->vz[(i_ + 1) + j * nzz] - fld->vz[i_ + j * nzz])) * inv_dz;
+              __m256 vx_im4 = _mm256_loadu_ps(&fld->vx[(i - 4) + j * nzz]);
+              __m256 vx_im3 = _mm256_loadu_ps(&fld->vx[(i - 3) + j * nzz]);
+              __m256 vx_im2 = _mm256_loadu_ps(&fld->vx[(i - 2) + j * nzz]);
+              __m256 vx_im1 = _mm256_loadu_ps(&fld->vx[(i - 1) + j * nzz]);
+              __m256 vx_ip1 = _mm256_loadu_ps(&fld->vx[(i + 1) + j * nzz]);
+              __m256 vx_ip2 = _mm256_loadu_ps(&fld->vx[(i + 2) + j * nzz]);
+              __m256 vx_ip3 = _mm256_loadu_ps(&fld->vx[(i + 3) + j * nzz]);
 
-              float dvx_dz =
-                (FDM8E1 * (fld->vx[(i_ - 4) + j * nzz] - fld->vx[(i_ + 3) + j * nzz]) +
-                 FDM8E2 * (fld->vx[(i_ + 2) + j * nzz] - fld->vx[(i_ - 3) + j * nzz]) +
-                 FDM8E3 * (fld->vx[(i_ - 2) + j * nzz] - fld->vx[(i_ + 1) + j * nzz]) +
-                 FDM8E4 * (fld->vx[i_ + j * nzz] - fld->vx[(i_ - 1) + j * nzz])) * inv_dz;
+              __m256 vz_jm4 = _mm256_loadu_ps(&fld->vz[i + (j - 4) * nzz]);
+              __m256 vz_jp3 = _mm256_loadu_ps(&fld->vz[i + (j + 3) * nzz]);
+              __m256 vz_jp2 = _mm256_loadu_ps(&fld->vz[i + (j + 2) * nzz]);
+              __m256 vz_jm3 = _mm256_loadu_ps(&fld->vz[i + (j - 3) * nzz]);
+              __m256 vz_jm2 = _mm256_loadu_ps(&fld->vz[i + (j - 2) * nzz]);
+              __m256 vz_jp1 = _mm256_loadu_ps(&fld->vz[i + (j + 1) * nzz]);
+              __m256 vz_j   = _mm256_loadu_ps(&fld->vz[i + j * nzz]);
+              __m256 vz_jm1 = _mm256_loadu_ps(&fld->vz[i + (j - 1) * nzz]);
 
-              float dvz_dx =
-                (FDM8E1 * (fld->vz[i_ + (j - 4) * nzz] - fld->vz[i_ + (j + 3) * nzz]) +
-                 FDM8E2 * (fld->vz[i_ + (j + 2) * nzz] - fld->vz[i_ + (j - 3) * nzz]) +
-                 FDM8E3 * (fld->vz[i_ + (j - 2) * nzz] - fld->vz[i_ + (j + 1) * nzz]) +
-                 FDM8E4 * (fld->vz[i_ + j * nzz] - fld->vz[i_ + (j - 1) * nzz])) * inv_dx;
+              __m256 vz_im4 = _mm256_loadu_ps(&fld->vz[(i - 4) + j * nzz]);
+              __m256 vz_ip4 = _mm256_loadu_ps(&fld->vz[(i + 4) + j * nzz]);
+              __m256 vz_ip3 = _mm256_loadu_ps(&fld->vz[(i + 3) + j * nzz]);
+              __m256 vz_ip2 = _mm256_loadu_ps(&fld->vz[(i + 2) + j * nzz]);
+              __m256 vz_im3 = _mm256_loadu_ps(&fld->vz[(i - 3) + j * nzz]);
+              __m256 vz_im2 = _mm256_loadu_ps(&fld->vz[(i - 2) + j * nzz]);
+              __m256 vz_im1 = _mm256_loadu_ps(&fld->vz[(i - 1) + j * nzz]);
+              __m256 vz_ip1 = _mm256_loadu_ps(&fld->vz[(i + 1) + j * nzz]);
 
-              float vp2 = m->vp[i_ + j * nzz] * m->vp[i_ + j * nzz];
-              float vs2 = m->vs[i_ + j * nzz] * m->vs[i_ + j * nzz];
-              float vs2_xp = m->vs[(i_ + 1) + j * nzz] * m->vs[(i_ + 1) + j * nzz];
-              float vs2_zp = m->vs[i_ + (j + 1) * nzz] * m->vs[i_ + (j + 1) * nzz];
-              float vs2_xp_zp = m->vs[(i_ + 1) + (j + 1) * nzz] * m->vs[(i_ + 1) + (j + 1) * nzz];
+              __m256 dvx_dx = _mm256_mul_ps(
+                    _mm256_add_ps(
+                        _mm256_add_ps(
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E1), _mm256_sub_ps(vx_jm3, vx_jp4)),
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E2), _mm256_sub_ps(vx_jp3, vx_jm2))
+                        ),
+                        _mm256_add_ps(
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E3), _mm256_sub_ps(vx_jm1, vx_jp2)),
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E4), _mm256_sub_ps(vx_jp1, vx_j))
+                        )
+                    ),
+                    _mm256_set1_ps(inv_dx)
+                );
 
-              float lamb = m->rho[i_ + j * nzz] * (vp2 - 2.0f * vs2);
-              float mi   = m->rho[i_ + j * nzz] * vs2;
+              __m256 dvx_dz = _mm256_mul_ps(
+                    _mm256_add_ps(
+                        _mm256_add_ps(
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E1), _mm256_sub_ps(vx_im4, vx_ip3)),
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E2), _mm256_sub_ps(vx_ip2, vx_im3))
+                        ),
+                        _mm256_add_ps(
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E3), _mm256_sub_ps(vx_im2, vx_ip1)),
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E4), _mm256_sub_ps(vx_j, vx_im1))
+                        )
+                    ),
+                    _mm256_set1_ps(inv_dx)
+                );
 
-              float mi1 = m->rho[i_ + j * nzz] * vs2;
-              float mi2 = m->rho[(i_ + 1) + j * nzz] * vs2_xp;
-              float mi3 = m->rho[i_ + (j + 1) * nzz] * vs2_zp;
-              float mi4 = m->rho[(i_ + 1) + (j + 1) * nzz] * vs2_xp_zp;
+              __m256 dvz_dz = _mm256_mul_ps(
+                    _mm256_add_ps(
+                        _mm256_add_ps(
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E1), _mm256_sub_ps(vz_im3, vz_ip4)),
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E2), _mm256_sub_ps(vz_ip3, vz_im2))
+                        ),
+                        _mm256_add_ps(
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E3), _mm256_sub_ps(vz_im1, vz_ip2)),
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E4), _mm256_sub_ps(vz_ip1, vz_j))
+                        )
+                    ),
+                    _mm256_set1_ps(inv_dz)
+                );
+
+              __m256 dvz_dx = _mm256_mul_ps(
+                    _mm256_add_ps(
+                        _mm256_add_ps(
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E1), _mm256_sub_ps(vz_jm4, vz_jp3)),
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E2), _mm256_sub_ps(vz_jp2, vz_jm3))
+                        ),
+                        _mm256_add_ps(
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E3), _mm256_sub_ps(vz_jm2, vz_jp1)),
+                            _mm256_mul_ps(_mm256_set1_ps(FDM8E4), _mm256_sub_ps(vz_j, vz_jm1))
+                        )
+                    ),
+                    _mm256_set1_ps(inv_dx)
+                );
+
+              __m256 vp_j  = _mm256_loadu_ps(&m->vp[i + j * nzz]);
+              __m256 vs_ip1= _mm256_loadu_ps(&m->vs[(i + 1) + j * nzz]);
+              __m256 vs_jp1= _mm256_loadu_ps(&m->vs[i + (j + 1) * nzz]);
+              __m256 vs_j  = _mm256_loadu_ps(&m->vs[i + j * nzz]);
+              __m256 rhoj = _mm256_loadu_ps(&m->rho[i + j * nzz]);
+
+              __m256 vp2 = _mm256_mul_ps(vp_j, vp_j);
+              __m256 vs2 = _mm256_mul_ps(vs_j, vs_j);
+              __m256 vs2_xp    = _mm256_mul_ps(vs_ip1, vs_ip1);          
+              __m256 vs2_zp    = _mm256_mul_ps(vs_jp1, vs_jp1);          
+              __m256 vs2_xp_zp = _mm256_mul_ps(
+                  _mm256_loadu_ps(&m->vs[(i + 1) + (j + 1) * nzz]
+                    ), _mm256_loadu_ps(&m->vs[(i + 1) + (j + 1) * nzz]
+                      )
+                  );
+
+              float lamb = m->rho[i + j * nzz] * (vp2 - 2.0f * vs2);
+              float mi   = m->rho[i + j * nzz] * vs2;
+
+              float mi1 = m->rho[i + j * nzz] * vs2;
+              float mi2 = m->rho[(i + 1) + j * nzz] * vs2_xp;
+              float mi3 = m->rho[i + (j + 1) * nzz] * vs2_zp;
+              float mi4 = m->rho[(i + 1) + (j + 1) * nzz] * vs2_xp_zp;
               float mi_avg = 4.0f / ((1.0f / mi1) + (1.0f / mi2) + (1.0f / mi3) + (1.0f / mi4));
 
-              fld->txx[i_ + j * nzz] += dt * ((lamb + 2.0f * mi) * dvx_dx + lamb * dvz_dz);
-              fld->tzz[i_ + j * nzz] += dt * ((lamb + 2.0f * mi) * dvz_dz + lamb * dvx_dx);
-              fld->txz[i_ + j * nzz] += dt * mi_avg * (dvx_dz + dvz_dx);
+              fld->txx[i + j * nzz] += dt * ((lamb + 2.0f * mi) * dvx_dx + lamb * dvz_dz);
+              fld->tzz[i + j * nzz] += dt * ((lamb + 2.0f * mi) * dvz_dz + lamb * dvx_dx);
+              fld->txz[i + j * nzz] += dt * mi_avg * (dvx_dz + dvz_dx);
 
-              float damp_prod = damp.x[j] * damp.z[i_];
-              fld->txx[i_ + j * nzz] *= damp_prod;
-              fld->tzz[i_ + j * nzz] *= damp_prod;
-              fld->txz[i_ + j * nzz] *= damp_prod;
+              float damp_prod = damp.x[j] * damp.z[i];
+              fld->txx[i + j * nzz] *= damp_prod;
+              fld->tzz[i + j * nzz] *= damp_prod;
+              fld->txz[i + j * nzz] *= damp_prod;
 
-              fld->calc_p[i_ + j * nzz] = 0.5f *
-                (fld->txx[i_ + j * nzz] + fld->tzz[i_ + j * nzz]);
+              fld->calc_p[i + j * nzz] = 0.5f *
+                (fld->txx[i + j * nzz] + fld->tzz[i + j * nzz]);
             }
           }
         }
       }
 
-      // velocity update (cache tiled)
-      #pragma omp parallel for schedule(static)
+      // velocity update 
+      #pragma omp parallel for collapse(2)
       for (int jj = 4; jj < nxx - 4; jj += TILE_J)
       {
         for (int ii = 4; ii < nzz - 4; ii += TILE_I)
         {
-          for (int j = jj; j < MIN(jj + TILE_J, nxx - 4); j++)
+          int j_min = MIN(jj + TILE_J, nxx - 4);
+          int i_min = MIN(ii + TILE_I, nzz - 4);
+          for (int j = jj; j < j_min; j++)
           {
-            for (int i_ = ii; i_ < MIN(ii + TILE_I, nzz - 4); i_++)
+            for (int i = ii; i < i_min; i++)
             {
               float dtxx_dx =
-                (FDM8E1 * (fld->txx[i_ + (j - 4) * nzz] - fld->txx[i_ + (j + 3) * nzz]) +
-                 FDM8E2 * (fld->txx[i_ + (j + 2) * nzz] - fld->txx[i_ + (j - 3) * nzz]) +
-                 FDM8E3 * (fld->txx[i_ + (j - 2) * nzz] - fld->txx[i_ + (j + 1) * nzz]) +
-                 FDM8E4 * (fld->txx[i_ + j * nzz] - fld->txx[i_ + (j - 1) * nzz])) * inv_dx;
+                (FDM8E1 * (fld->txx[i + (j - 4) * nzz] - fld->txx[i + (j + 3) * nzz]) +
+                 FDM8E2 * (fld->txx[i + (j + 2) * nzz] - fld->txx[i + (j - 3) * nzz]) +
+                 FDM8E3 * (fld->txx[i + (j - 2) * nzz] - fld->txx[i + (j + 1) * nzz]) +
+                 FDM8E4 * (fld->txx[i + j * nzz] - fld->txx[i + (j - 1) * nzz])) * inv_dx;
 
               float dtxz_dz =
-                (FDM8E1 * (fld->txz[(i_ - 3) + j * nzz] - fld->txz[(i_ + 4) + j * nzz]) +
-                 FDM8E2 * (fld->txz[(i_ + 3) + j * nzz] - fld->txz[(i_ - 2) + j * nzz]) +
-                 FDM8E3 * (fld->txz[(i_ - 1) + j * nzz] - fld->txz[(i_ + 2) + j * nzz]) +
-                 FDM8E4 * (fld->txz[(i_ + 1) + j * nzz] - fld->txz[i_ + j * nzz])) * inv_dz;
+                (FDM8E1 * (fld->txz[(i - 3) + j * nzz] - fld->txz[(i + 4) + j * nzz]) +
+                 FDM8E2 * (fld->txz[(i + 3) + j * nzz] - fld->txz[(i - 2) + j * nzz]) +
+                 FDM8E3 * (fld->txz[(i - 1) + j * nzz] - fld->txz[(i + 2) + j * nzz]) +
+                 FDM8E4 * (fld->txz[(i + 1) + j * nzz] - fld->txz[i + j * nzz])) * inv_dz;
 
               float dtxz_dx =
-                (FDM8E1 * (fld->txz[i_ + (j - 3) * nzz] - fld->txz[i_ + (j + 4) * nzz]) +
-                 FDM8E2 * (fld->txz[i_ + (j + 3) * nzz] - fld->txz[i_ + (j - 2) * nzz]) +
-                 FDM8E3 * (fld->txz[i_ + (j - 1) * nzz] - fld->txz[i_ + (j + 2) * nzz]) +
-                 FDM8E4 * (fld->txz[i_ + (j + 1) * nzz] - fld->txz[i_ + j * nzz])) * inv_dx;
+                (FDM8E1 * (fld->txz[i + (j - 3) * nzz] - fld->txz[i + (j + 4) * nzz]) +
+                 FDM8E2 * (fld->txz[i + (j + 3) * nzz] - fld->txz[i + (j - 2) * nzz]) +
+                 FDM8E3 * (fld->txz[i + (j - 1) * nzz] - fld->txz[i + (j + 2) * nzz]) +
+                 FDM8E4 * (fld->txz[i + (j + 1) * nzz] - fld->txz[i + j * nzz])) * inv_dx;
 
               float dtzz_dz =
-                (FDM8E1 * (fld->tzz[(i_ - 4) + j * nzz] - fld->tzz[(i_ + 3) + j * nzz]) +
-                 FDM8E2 * (fld->tzz[(i_ + 2) + j * nzz] - fld->tzz[(i_ - 3) + j * nzz]) +
-                 FDM8E3 * (fld->tzz[(i_ - 2) + j * nzz] - fld->tzz[(i_ + 1) + j * nzz]) +
-                 FDM8E4 * (fld->tzz[i_ + j * nzz] - fld->tzz[(i_ - 1) + j * nzz])) * inv_dz;
+                (FDM8E1 * (fld->tzz[(i - 4) + j * nzz] - fld->tzz[(i + 3) + j * nzz]) +
+                 FDM8E2 * (fld->tzz[(i + 2) + j * nzz] - fld->tzz[(i - 3) + j * nzz]) +
+                 FDM8E3 * (fld->tzz[(i - 2) + j * nzz] - fld->tzz[(i + 1) + j * nzz]) +
+                 FDM8E4 * (fld->tzz[i + j * nzz] - fld->tzz[(i - 1) + j * nzz])) * inv_dz;
 
-              float rho_inv  = 1.0f / (0.5f * (m->rho[i_ + j * nzz] + m->rho[i_ + (j + 1) * nzz]));
-              float rho_inv2 = 1.0f / (0.5f * (m->rho[i_ + j * nzz] + m->rho[(i_ + 1) + j * nzz]));
+              float rho_inv  = 1.0f / (0.5f * (m->rho[i + j * nzz] + m->rho[i + (j + 1) * nzz]));
+              float rho_inv2 = 1.0f / (0.5f * (m->rho[i + j * nzz] + m->rho[(i + 1) + j * nzz]));
 
-              fld->vx[i_ + j * nzz] += dt * rho_inv  * (dtxx_dx + dtxz_dz);
-              fld->vz[i_ + j * nzz] += dt * rho_inv2 * (dtxz_dx + dtzz_dz);
+              fld->vx[i + j * nzz] += dt * rho_inv  * (dtxx_dx + dtxz_dz);
+              fld->vz[i + j * nzz] += dt * rho_inv2 * (dtxz_dx + dtzz_dz);
 
-              float damp_prod = damp.x[j] * damp.z[i_];
-              fld->vx[i_ + j * nzz] *= damp_prod;
-              fld->vz[i_ + j * nzz] *= damp_prod;
+              float damp_prod = damp.x[j] * damp.z[i];
+              fld->vx[i + j * nzz] *= damp_prod;
+              fld->vz[i + j * nzz] *= damp_prod;
             }
           }
         }
@@ -496,12 +584,13 @@ void fd_simd(const config_t *p, model_t *m, fields_t *fld)
       if (p->snap_bool) { get_snapshots(p, fld, t); }
 
       // register seismogram
-      #pragma omp parallel for schedule(static)
+      #pragma omp parallel for
       for (int i = 0; i < p->r_f_lines; i++)
       {
         int ix = (int)p->rcv_x[i] + p->nb;
         int iz = (int)p->rcv_z[i] + p->nb;
         int idx = iz + ix * p->nzz;
+
         seismogram[t + i * p->nt] = fld->calc_p[idx];
       }
     }
