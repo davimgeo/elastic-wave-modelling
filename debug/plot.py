@@ -55,27 +55,52 @@ ani = FuncAnimation(fig, update, frames=len(vxSnapshots), blit=False, interval=1
 plt.show()
 
 nt = 5001
-nrec = 172;
+nrec = 172
+dt = 1e-3
+offset = 10
 
 seismogram = np.fromfile(
-    "data/output/seismogram_txx_1150x648.bin", dtype=np.float32, count=nt*nrec
+    "data/output/seismogram_txx_1150x648.bin",
+    dtype=np.float32,
+    count=nt * nrec
 ).reshape([nt, nrec], order='F')
 
 perc = 99
 
-scale_min = np.percentile(seismogram, 100-perc)
+scale_min = np.percentile(seismogram, 100 - perc)
 scale_max = np.percentile(seismogram, perc)
 
-TRACE = 80
+fig, ax = plt.subplots(figsize=(10, 8))
 
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 8), sharey=True)
+tloc = np.linspace(0, nt - 1, 11, dtype = int)
+tlab = np.around(tloc * dt, decimals = 1)
 
-ax[0].imshow(seismogram, cmap="Greys", aspect="auto", vmin=scale_min, vmax=scale_max)
-ax[0].plot(TRACE * np.ones(nt), np.arange(nt), 'r--')
+xloc = np.linspace(0, nrec - 1, 9)
+xlab = np.array(offset * xloc, dtype = int)
 
-ax[1].plot(seismogram[:, TRACE], np.arange(nt))
+scale_min = np.percentile(seismogram, 100 - perc)
+scale_max = np.percentile(seismogram, perc)
+
+img = ax.imshow(
+    seismogram, aspect = "auto", cmap="Greys", 
+    vmin=scale_min, vmax=scale_max
+)
+
+cbar = fig.colorbar(img, ax = ax, extend = 'neither')
+cbar.minorticks_on()
+
+ax.set_yticks(tloc)
+ax.set_yticklabels(tlab)
+
+ax.set_xticks(xloc)
+ax.set_xticklabels(xlab)
+
+ax.set_title("Seismogram", fontsize = 18)
+ax.set_xlabel("Distance [m]", fontsize = 15)
+ax.set_ylabel("Two Way Time [s]", fontsize = 15)
 
 plt.tight_layout()
 plt.show()
+
 
 

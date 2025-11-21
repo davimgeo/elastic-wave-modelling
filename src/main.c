@@ -70,7 +70,7 @@ int main(void)
 
   fields_t fld = {0};
 
-  fd_simd(&cfg, &m, &fld);
+  fd(&cfg, &m, &fld);
 
   clock_gettime(CLOCK_MONOTONIC, &end);
 

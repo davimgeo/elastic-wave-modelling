@@ -18,8 +18,6 @@ typedef struct
   float *x, *z;
 } damping_t;
 
-void fd_normal(const config_t *p, model_t *m, fields_t *fld);
-
-void fd_simd(const config_t *p, model_t *m, fields_t *fld);
+void fd(const config_t *p, model_t *m, fields_t *fld);
 
 #endif // FD_H
